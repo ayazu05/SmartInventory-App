@@ -17,7 +17,6 @@ if (typeof firebase !== 'undefined' && !firebase.apps.length) {
 const auth = typeof firebase !== 'undefined' ? firebase.auth() : null;
 const db = typeof firebase !== 'undefined' ? firebase.firestore() : null;
 
-// Firestore Offline Persistence
 if (db) {
     db.enablePersistence().catch(err => {
         console.warn("Persistence note:", err.code);
@@ -32,6 +31,7 @@ let pendingProfileUpdate = null;
 
 let currentUserData = null;
 let inventoryList = [];
+let filteredList = [];
 
 let currentActionType = 'Stock IN';
 let capturedImageBase64 = '';
@@ -39,7 +39,7 @@ let selectedIndexForOut = -1;
 let activeModalToCancel = '';
 let pendingDeleteIndex = -1;
 
-// Helper: Mobile Normalization
+// Phone Normalizer
 function formatPhone(phone) {
     let cleaned = (phone || '').toString().replace(/\D/g, '');
     if (cleaned.length === 10) {
@@ -48,10 +48,9 @@ function formatPhone(phone) {
     return '+' + cleaned;
 }
 
-// Application Initialization
+// Initialization
 document.addEventListener('DOMContentLoaded', async () => {
     hideSplashScreen();
-    initAiModelDownload();
     setupEvents();
 
     const savedPhone = localStorage.getItem('userPhone');
@@ -61,6 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             currentUserData = JSON.parse(localProfile);
             renderProfileToUI(currentUserData);
+            updateHeaderProfileUI(currentUserData);
         } catch (e) {
             console.error(e);
         }
@@ -71,16 +71,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         await fetchUserDataAndSync(savedPhone);
     } else {
         document.getElementById('authOverlay')?.classList.remove('hidden');
-    }
-
-    if (auth) {
-        auth.onAuthStateChanged(async (user) => {
-            if (user && user.phoneNumber) {
-                localStorage.setItem('userPhone', user.phoneNumber);
-                await fetchUserDataAndSync(user.phoneNumber);
-                document.getElementById('authOverlay')?.classList.add('hidden');
-            }
-        });
     }
 });
 
@@ -106,7 +96,7 @@ function setupEvents() {
     document.getElementById('btnConfirmYes')?.addEventListener('click', handleConfirmAction);
 }
 
-// Auth Handlers
+// Auth Views
 function switchAuthView(mode) {
     currentAuthMode = mode;
     document.getElementById('authRegisterView')?.classList.add('hidden');
@@ -117,10 +107,10 @@ function switchAuthView(mode) {
         document.getElementById('authTitle').innerText = "Register Account";
         document.getElementById('authRegisterView')?.classList.remove('hidden');
     } else if (mode === 'login') {
-        document.getElementById('authTitle').innerText = "Login to Cloud";
+        document.getElementById('authTitle').innerText = "Cloud Login";
         document.getElementById('authLoginView')?.classList.remove('hidden');
     } else {
-        document.getElementById('authTitle').innerText = "Enter OTP";
+        document.getElementById('authTitle').innerText = "Verify Mobile OTP";
         document.getElementById('authOtpView')?.classList.remove('hidden');
     }
 }
@@ -130,7 +120,7 @@ async function sendAuthOtp(mode) {
     let rawPhone = phoneInput ? phoneInput.value.trim() : '';
 
     if (!rawPhone || rawPhone.replace(/\D/g, '').length < 10) {
-        showSuccessPopUp("Enter valid 10-digit mobile number!");
+        showSuccessPopUp("Please enter valid 10-digit phone number!");
         return;
     }
 
@@ -166,7 +156,6 @@ async function sendAuthOtp(mode) {
             }
         }
 
-        // Direct Auth Bypass logic for local web testing
         confirmationResultGlobal = {
             confirm: async (otpCode) => {
                 if (otpCode === "123456" || otpCode.length === 6) {
@@ -231,7 +220,7 @@ function cancelAuthFlow() {
     switchAuthView(currentAuthMode);
 }
 
-// User Profile & Data Sync
+// Profile & Realtime Sync
 async function fetchUserDataAndSync(phone) {
     if (!phone) return;
     const formattedPhone = formatPhone(phone);
@@ -243,6 +232,7 @@ async function fetchUserDataAndSync(phone) {
                 currentUserData = doc.data();
                 localStorage.setItem('localProfileData', JSON.stringify(currentUserData));
                 renderProfileToUI(currentUserData);
+                updateHeaderProfileUI(currentUserData);
             } else if (currentUserData) {
                 await db.collection('users').doc(formattedPhone).set(currentUserData, { merge: true });
             }
@@ -254,6 +244,7 @@ async function fetchUserDataAndSync(phone) {
                     inventoryList = JSON.parse(localStorage.getItem('localInventoryData') || '[]');
                 }
                 renderInventory();
+                updateStats();
             });
         }
     } catch (error) {
@@ -267,6 +258,12 @@ function renderProfileToUI(data) {
     if (document.getElementById('profFarm')) document.getElementById('profFarm').value = data.farm || '';
     if (document.getElementById('profEmail')) document.getElementById('profEmail').value = data.email || '';
     if (document.getElementById('profPhone')) document.getElementById('profPhone').value = data.phone || '';
+}
+
+function updateHeaderProfileUI(data) {
+    if (!data) return;
+    if (document.getElementById('menuUserName')) document.getElementById('menuUserName').innerText = data.name || 'User';
+    if (document.getElementById('menuUserFarm')) document.getElementById('menuUserFarm').innerText = data.farm || 'My Farm';
 }
 
 function toggleProfileEdit(enable) {
@@ -307,8 +304,9 @@ async function saveProfileChanges() {
         await db.collection('users').doc(phone).set(updatedProfile, { merge: true });
     }
 
+    updateHeaderProfileUI(updatedProfile);
     toggleProfileEdit(false);
-    showSuccessPopUp("Profile Saved Successfully!");
+    showSuccessPopUp("Profile Saved to Cloud!");
 }
 
 function logoutUser() {
@@ -331,8 +329,8 @@ function requestCancel(modalId) {
     activeModalToCancel = modalId;
     pendingDeleteIndex = -1;
 
-    document.getElementById('confirmModalTitle').innerText = "Want to Cancel?";
-    document.getElementById('confirmModalText').innerText = "Do you want to cancel this operation?";
+    document.getElementById('confirmModalTitle').innerText = "Cancel Operation?";
+    document.getElementById('confirmModalText').innerText = "Are you sure you want to cancel?";
     document.getElementById('confirmIcon').className = "fas fa-circle-question confirm-dialog-icon";
     document.getElementById('confirmIcon').style.color = "#f59e0b";
 
@@ -344,7 +342,7 @@ function requestDelete(index) {
     activeModalToCancel = '';
 
     const item = inventoryList[index];
-    document.getElementById('confirmModalTitle').innerText = "Want to Delete?";
+    document.getElementById('confirmModalTitle').innerText = "Delete Stock Item?";
     document.getElementById('confirmModalText').innerText = `Are you sure you want to delete "${item.name}"?`;
     document.getElementById('confirmIcon').className = "fas fa-trash-can confirm-dialog-icon";
     document.getElementById('confirmIcon').style.color = "#f43f5e";
@@ -367,11 +365,12 @@ function handleConfirmAction() {
         pendingDeleteIndex = -1;
         saveInventoryToCloud();
         renderInventory();
-        showSuccessPopUp("Item Deleted Successfully!");
+        updateStats();
+        showSuccessPopUp("Item Deleted!");
     }
 }
 
-// Navigation & Drawer
+// UI Navigation
 function openMenu() {
     document.getElementById('menuDrawer')?.classList.add('open');
     document.getElementById('drawerBackdrop')?.classList.add('active');
@@ -395,7 +394,6 @@ function switchTab(tabName) {
     }
 }
 
-// Settings
 function changeMenuPosition(pos) {
     const drawer = document.getElementById('menuDrawer');
     if (!drawer) return;
@@ -417,7 +415,7 @@ function changeTheme(themeVal) {
     }
 }
 
-// Stock Action Handlers
+// Stock Actions
 function handleStockIn() {
     currentActionType = 'Stock IN';
     selectedIndexForOut = -1;
@@ -443,7 +441,7 @@ function renderManualStockListModal() {
             <img src="${item.image || 'https://via.placeholder.com/48'}" alt="img" />
             <div class="stock-info">
                 <div class="stock-title">${item.name}</div>
-                <div class="stock-qty">Available: ${item.qty}</div>
+                <div class="stock-qty">Available: ${item.qty} units</div>
             </div>
         </div>
     `).join('');
@@ -520,7 +518,7 @@ function proceedToDetails() {
         nameInput.value = '';
         nameInput.disabled = false;
         document.getElementById('qtyLimitHint').classList.add('hidden');
-        document.getElementById('btnSubmitCloud').innerHTML = `<i class="fas fa-cloud-arrow-up"></i> Upload`;
+        document.getElementById('btnSubmitCloud').innerHTML = `<i class="fas fa-cloud-arrow-up"></i> Save to Cloud`;
     }
 
     document.getElementById('modalDetails')?.classList.remove('hidden');
@@ -531,14 +529,14 @@ function uploadToCloudProcess() {
     const qtyVal = parseInt(document.getElementById('prodQty').value);
 
     if (!name || isNaN(qtyVal) || qtyVal <= 0) {
-        showSuccessPopUp("Enter valid Quantity!");
+        showSuccessPopUp("Please enter valid quantity!");
         return;
     }
 
     if (currentActionType === 'Stock OUT') {
         const currentItem = inventoryList[selectedIndexForOut];
         if (qtyVal > currentItem.qty) {
-            showSuccessPopUp(`Max available: ${currentItem.qty}`);
+            showSuccessPopUp(`Max available quantity is ${currentItem.qty}`);
             return;
         }
     }
@@ -547,7 +545,7 @@ function uploadToCloudProcess() {
     const uploadModal = document.getElementById('modalUploadProgress');
     const progressBar = document.getElementById('uploadProgressBar');
     const percentTxt = document.getElementById('uploadPercentText');
-    document.getElementById('uploadModalTitle').innerText = currentActionType === 'Stock IN' ? "Uploading to Cloud..." : "Deducting Stock...";
+    document.getElementById('uploadModalTitle').innerText = currentActionType === 'Stock IN' ? "Syncing with Cloud..." : "Deducting Stock...";
 
     uploadModal.classList.remove('hidden');
     let percent = 0;
@@ -566,7 +564,7 @@ function uploadToCloudProcess() {
                 if (existingIndex > -1) {
                     inventoryList[existingIndex].qty += qtyVal;
                 } else {
-                    inventoryList.unshift({ id: Date.now(), name, qty: qtyVal, image: capturedImageBase64 || 'https://via.placeholder.com/48' });
+                    inventoryList.unshift({ id: Date.now(), name, qty: qtyVal, image: capturedImageBase64 || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=100' });
                 }
             } else {
                 inventoryList[selectedIndexForOut].qty -= qtyVal;
@@ -577,34 +575,62 @@ function uploadToCloudProcess() {
 
             saveInventoryToCloud();
             renderInventory();
+            updateStats();
             document.getElementById('prodName').value = '';
             document.getElementById('prodQty').value = '';
 
-            showSuccessPopUp(currentActionType === 'Stock IN' ? "Stock Added Successfully!" : "Stock Deducted Successfully!");
+            showSuccessPopUp(currentActionType === 'Stock IN' ? "Stock Added to Cloud!" : "Stock Deducted Successfully!");
         }
     }, 120);
 }
 
-function renderInventory() {
+function filterInventory() {
+    const query = document.getElementById('searchInput').value.toLowerCase().trim();
+    if (!query) {
+        renderInventory(inventoryList);
+    } else {
+        const filtered = inventoryList.filter(item => item.name.toLowerCase().includes(query));
+        renderInventory(filtered);
+    }
+}
+
+function renderInventory(listToRender = inventoryList) {
     const container = document.getElementById('stockListContainer');
     if (!container) return;
-    if (inventoryList.length === 0) {
-        container.innerHTML = '<p class="empty-msg">No stock items available.</p>';
+
+    if (listToRender.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-box-open"></i>
+                <p>No inventory records found.</p>
+            </div>
+        `;
         return;
     }
 
-    container.innerHTML = inventoryList.map((item, index) => `
-        <div class="stock-item">
-            <img src="${item.image || 'https://via.placeholder.com/48'}" alt="img" />
-            <div class="stock-info">
-                <div class="stock-title">${item.name}</div>
-                <div class="stock-qty">In Stock: ${item.qty} units</div>
+    container.innerHTML = listToRender.map((item, index) => {
+        const realIndex = inventoryList.findIndex(i => i.id === item.id);
+        return `
+            <div class="stock-item">
+                <img src="${item.image || 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=100'}" alt="item" />
+                <div class="stock-info">
+                    <div class="stock-title">${item.name}</div>
+                    <div class="stock-qty"><i class="fas fa-layer-group"></i> In Stock: ${item.qty} units</div>
+                </div>
+                <button class="btn-delete-item" onclick="requestDelete(${realIndex > -1 ? realIndex : index})" title="Delete">
+                    <i class="fas fa-trash-can"></i>
+                </button>
             </div>
-            <button class="btn-delete-item" onclick="requestDelete(${index})">
-                <i class="fas fa-trash-can"></i>
-            </button>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+}
+
+function updateStats() {
+    const totalItems = inventoryList.length;
+    const totalQty = inventoryList.reduce((acc, curr) => acc + (curr.qty || 0), 0);
+
+    if (document.getElementById('statTotalItems')) document.getElementById('statTotalItems').innerText = totalItems;
+    if (document.getElementById('statTotalQty')) document.getElementById('statTotalQty').innerText = totalQty;
 }
 
 function showSuccessPopUp(msg) {
@@ -613,19 +639,4 @@ function showSuccessPopUp(msg) {
     document.getElementById('popUpMessage').innerText = msg;
     popup.classList.remove('hidden');
     setTimeout(() => popup.classList.add('hidden'), 2200);
-}
-
-function initAiModelDownload() {
-    const aiContainer = document.getElementById('aiDownloadContainer');
-    if (!aiContainer) return;
-    aiContainer.classList.remove('hidden');
-
-    let percent = 0;
-    const interval = setInterval(() => {
-        percent += 10;
-        if (percent >= 100) {
-            clearInterval(interval);
-            setTimeout(() => aiContainer.classList.add('hidden'), 500);
-        }
-    }, 100);
 }
