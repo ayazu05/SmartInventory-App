@@ -33,13 +33,15 @@ function forceHideSplash() {
 }
 
 function setupRecaptcha() {
-    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response) => {}
-    });
+    if (!window.recaptchaVerifier) {
+        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+            'size': 'invisible',
+            'callback': (response) => {}
+        });
+    }
 }
 
-// SCREEN SWITCHING FUNCTIONS (STRICTLY ONE AT A TIME)
+// SCREEN SWITCHING FUNCTIONS
 function switchToSignUp() {
     document.getElementById('authLoginCard').style.display = 'none';
     document.getElementById('authSignUpCard').style.display = 'block';
@@ -58,7 +60,7 @@ function resetAuthView() {
     document.getElementById('regOtpFields').style.display = 'none';
 }
 
-// Unified OTP Handler
+// OTP SEND FUNCTION (FIXED BUG)
 async function sendOTP(mode) {
     let rawPhone = '';
 
@@ -81,6 +83,8 @@ async function sendOTP(mode) {
     }
 
     const formattedPhone = rawPhone.startsWith('+') ? rawPhone : '+91' + rawPhone.slice(-10);
+    
+    setupRecaptcha();
     const appVerifier = window.recaptchaVerifier;
 
     try {
@@ -97,10 +101,15 @@ async function sendOTP(mode) {
     } catch (error) {
         console.error("OTP Send Error:", error);
         alert("Failed to send OTP: " + error.message);
-        if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
+        if (window.recaptchaVerifier) {
+            window.recaptchaVerifier.render().then(widgetId => {
+                if (typeof grecaptcha !== 'undefined') grecaptcha.reset(widgetId);
+            });
+        }
     }
 }
 
+// OTP VERIFICATION FUNCTION
 async function verifyOTP(mode) {
     const code = (mode === 'login') 
         ? document.getElementById('authOtpInput').value.trim() 
@@ -355,10 +364,12 @@ function showToast(msg) {
 }
 
 function requestCancel(id) { document.getElementById(id).classList.add('hidden'); }
+
 function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
 }
+
 function handleStockIn() { document.getElementById('modalDetails').classList.remove('hidden'); }
 function handleStockOut() { document.getElementById('modalStockOutDetails').classList.remove('hidden'); }
 
