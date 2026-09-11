@@ -51,6 +51,7 @@
         <nav class="drawer-nav">
             <button class="nav-item active" onclick="switchTab('stocks'); closeMenu();"><i class="fas fa-boxes-stacked"></i> Dashboard & Stocks</button>
             <button class="nav-item" onclick="handleStockIn(); closeMenu();"><i class="fas fa-plus"></i> Quick Stock IN</button>
+            <button class="nav-item" onclick="handleStockOut(); closeMenu();"><i class="fas fa-minus"></i> Quick Stock OUT</button>
             <div class="nav-divider"></div>
             <button class="nav-item" onclick="switchTab('profile'); closeMenu();"><i class="fas fa-id-card"></i> Profile</button>
             <button class="nav-item logout-btn" onclick="logoutUser()"><i class="fas fa-power-off"></i> Sign Out</button>
@@ -59,6 +60,13 @@
 
     <main class="main-content">
         <section id="tabStocks" class="tab-content active">
+            
+            <!-- STYLISH THEMED WELCOME BANNER -->
+            <div class="welcome-banner glassmorphism mb-3">
+                <i class="fas fa-robot banner-icon"></i>
+                <h2>Your Ai Stock Manager IS Ready</h2>
+            </div>
+
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="stat-info"><span class="stat-label">Total Items</span><h3 id="statTotalItems">0</h3></div>
@@ -67,12 +75,17 @@
                     <div class="stat-info"><span class="stat-label">Total Stock Qty</span><h3 id="statTotalQty">0</h3></div>
                 </div>
             </div>
+
+            <!-- BOTH ACTION BUTTONS (STOCK IN & STOCK OUT) RESTORED -->
             <div class="action-bar">
                 <button class="btn btn-stock-in" onclick="handleStockIn()"><i class="fas fa-plus"></i> Stock IN</button>
+                <button class="btn btn-stock-out" onclick="handleStockOut()"><i class="fas fa-minus"></i> Stock OUT</button>
             </div>
+
             <div class="search-bar-card">
                 <input type="text" id="searchInput" placeholder="Search item..." oninput="filterInventory()">
             </div>
+            
             <div id="stockListContainer" class="stock-list"></div>
         </section>
 
@@ -95,18 +108,15 @@
                 <h2>Phone Authentication</h2>
             </div>
 
-            <!-- Phone Input View -->
             <div id="authPhoneView" class="auth-view">
                 <div class="input-group">
                     <label>Mobile Phone Number</label>
                     <input type="tel" id="authPhoneInput" placeholder="10 Digit Number (e.g. 7011162050)">
                 </div>
-                <!-- Invisible Recaptcha Container -->
                 <div id="recaptcha-container"></div>
                 <button class="btn btn-primary btn-full mt-2" onclick="sendOTP()">Send OTP</button>
             </div>
 
-            <!-- OTP Input View -->
             <div id="authOtpView" class="auth-view hidden">
                 <div class="input-group">
                     <label>Enter 6-Digit Verification Code</label>
@@ -118,14 +128,29 @@
         </div>
     </div>
 
-    <!-- Add Modal -->
+    <!-- STOCK IN MODAL -->
     <div id="modalDetails" class="modal-overlay hidden">
         <div class="modal-card">
-            <h3>Add Stock Item</h3>
+            <h3>Stock IN (Add Quantity)</h3>
             <input type="text" id="prodName" placeholder="Item Name">
-            <input type="number" id="prodQty" placeholder="Quantity">
-            <button class="btn btn-primary" onclick="uploadToCloudProcess()">Save</button>
-            <button class="btn btn-secondary" onclick="requestCancel('modalDetails')">Cancel</button>
+            <input type="number" id="prodQty" placeholder="Quantity to Add">
+            <div class="modal-actions mt-2">
+                <button class="btn btn-secondary" onclick="requestCancel('modalDetails')">Cancel</button>
+                <button class="btn btn-primary" onclick="uploadToCloudProcess('in')">Save Stock IN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- STOCK OUT MODAL -->
+    <div id="modalStockOutDetails" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3>Stock OUT (Deduct Quantity)</h3>
+            <input type="text" id="outProdName" placeholder="Item Name">
+            <input type="number" id="outProdQty" placeholder="Quantity to Deduct">
+            <div class="modal-actions mt-2">
+                <button class="btn btn-secondary" onclick="requestCancel('modalStockOutDetails')">Cancel</button>
+                <button class="btn btn-danger" onclick="uploadToCloudProcess('out')">Save Stock OUT</button>
+            </div>
         </div>
     </div>
 
