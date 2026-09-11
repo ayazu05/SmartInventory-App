@@ -190,19 +190,27 @@ function checkUserAuthentication() {
 function showAuthModal() { document.getElementById('authOverlay').classList.remove('hidden'); switchToLogin(); }
 function hideAuthModal() { document.getElementById('authOverlay').classList.add('hidden'); }
 
-// DEDICATED SCAN CAMERA FUNCTIONS
+// SCAN CAMERA & POPUP FUNCTIONS
 function openScanPage(mode) {
     activeScanMode = mode;
-    document.getElementById('scanPageTitle').innerText = (mode === 'in') ? "Stock IN - Scan Item" : "Stock OUT - Scan & AI Match";
+    document.getElementById('scanPageTitle').innerText = (mode === 'in') ? "Stock IN - Select Photo" : "Stock OUT - Select Photo";
     document.getElementById('scanPage').classList.remove('hidden');
+    document.getElementById('photoResultModal').classList.add('hidden');
     resetCameraScan();
 }
 
 function closeScanPage() {
     document.getElementById('scanPage').classList.add('hidden');
+    document.getElementById('photoResultModal').classList.add('hidden');
 }
 
-// HANDLER FOR NATIVE MOBILE CAMERA CAPTURE
+function retakePhoto() {
+    document.getElementById('photoResultModal').classList.add('hidden');
+    document.getElementById('scanPage').classList.remove('hidden');
+    document.getElementById('nativeCameraInput').value = '';
+    document.getElementById('galleryFileInput').value = '';
+}
+
 function handleNativeCameraUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -210,19 +218,11 @@ function handleNativeCameraUpload(event) {
     const reader = new FileReader();
     reader.onload = (e) => {
         capturedBase64Image = e.target.result;
-        const preview = document.getElementById('previewCapturedImg');
-        const placeholder = document.getElementById('placeholderView');
-
-        preview.src = capturedBase64Image;
-        preview.classList.remove('hidden');
-        if (placeholder) placeholder.style.display = 'none';
-
-        processImageWithAI();
+        openCapturedPopupModal();
     };
     reader.readAsDataURL(file);
 }
 
-// HANDLER FOR GALLERY UPLOAD
 function handleGalleryUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -230,48 +230,46 @@ function handleGalleryUpload(event) {
     const reader = new FileReader();
     reader.onload = (e) => {
         capturedBase64Image = e.target.result;
-        const preview = document.getElementById('previewCapturedImg');
-        const placeholder = document.getElementById('placeholderView');
-
-        preview.src = capturedBase64Image;
-        preview.classList.remove('hidden');
-        if (placeholder) placeholder.style.display = 'none';
-
-        processImageWithAI();
+        openCapturedPopupModal();
     };
     reader.readAsDataURL(file);
 }
 
+function openCapturedPopupModal() {
+    document.getElementById('scanPage').classList.add('hidden');
+    const modal = document.getElementById('photoResultModal');
+    modal.classList.remove('hidden');
+
+    const preview = document.getElementById('previewCapturedImg');
+    preview.src = capturedBase64Image;
+
+    document.getElementById('modalPageTitle').innerText = (activeScanMode === 'in') ? "Confirm Stock IN" : "Confirm Stock OUT";
+    processImageWithAI();
+}
+
 function resetCameraScan() {
     capturedBase64Image = null;
-    document.getElementById('previewCapturedImg').classList.add('hidden');
-    const placeholder = document.getElementById('placeholderView');
-    if (placeholder) placeholder.style.display = 'block';
-
-    document.getElementById('aiScanningLoader').classList.add('hidden');
-    document.getElementById('scanFormCard').classList.add('hidden');
-    document.getElementById('scanControls').style.display = 'flex';
     document.getElementById('scanItemName').value = '';
     document.getElementById('scanItemQty').value = '';
-
     document.getElementById('nativeCameraInput').value = '';
     document.getElementById('galleryFileInput').value = '';
 }
 
-// AI MATCHING LOGIC
 function processImageWithAI() {
-    document.getElementById('scanControls').style.display = 'none';
     const loader = document.getElementById('aiScanningLoader');
     const statusText = document.getElementById('aiScanStatus');
+    const formCard = document.getElementById('scanFormCard');
+
     loader.classList.remove('hidden');
+    formCard.style.opacity = '0.4';
 
     statusText.innerText = (activeScanMode === 'out') 
-        ? "AI Searching & Matching Inventory Images..." 
+        ? "AI Searching & Matching Inventory..." 
         : "AI Processing Item Image...";
 
     setTimeout(() => {
         loader.classList.add('hidden');
-        document.getElementById('scanFormCard').classList.remove('hidden');
+        formCard.style.opacity = '1';
 
         if (activeScanMode === 'out') {
             const matchedItem = inventoryList.find(item => item.image);
@@ -286,63 +284,87 @@ function processImageWithAI() {
             } else {
                 document.getElementById('detectedItemTitle').innerText = "No Stock Item Found";
             }
-            document.getElementById('btnSaveScanResult').className = "btn btn-danger";
+            document.getElementById('btnSaveScanResult').className = "btn btn-danger btn-full";
             document.getElementById('btnSaveScanResult').innerText = "Confirm Stock OUT";
         } else {
             document.getElementById('detectedItemTitle').innerText = "New Item Details";
-            document.getElementById('btnSaveScanResult').className = "btn btn-primary";
+            document.getElementById('btnSaveScanResult').className = "btn btn-primary btn-full";
             document.getElementById('btnSaveScanResult').innerText = "Confirm Stock IN";
         }
-    }, 2000);
+    }, 1200);
 }
 
+// CONFIRM SUBMIT FUNCTION
 async function confirmScanSubmit() {
-    const name = document.getElementById('scanItemName').value.trim();
-    const qty = parseInt(document.getElementById('scanItemQty').value, 10);
+    const nameInput = document.getElementById('scanItemName').value.trim();
+    const qtyInput = document.getElementById('scanItemQty').value.trim();
     const phone = localStorage.getItem('userPhone');
 
-    if (!name || isNaN(qty) || qty <= 0 || !phone) {
-        alert("Please enter valid name and quantity.");
+    const qty = Number(qtyInput);
+
+    if (!nameInput) {
+        alert("Please enter Item Name.");
+        return;
+    }
+    if (isNaN(qty) || qty <= 0) {
+        alert("Please enter a valid Quantity.");
+        return;
+    }
+    if (!phone) {
+        alert("Session expired, please login again.");
         return;
     }
 
-    const index = inventoryList.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
+    const submitBtn = document.getElementById('btnSaveScanResult');
+    submitBtn.innerText = "Saving...";
+    submitBtn.disabled = true;
+
+    const index = inventoryList.findIndex(i => i.name.toLowerCase() === nameInput.toLowerCase());
 
     if (activeScanMode === 'in') {
         if (index > -1) {
-            inventoryList[index].qty += qty;
+            inventoryList[index].qty = Number(inventoryList[index].qty) + qty;
             if (capturedBase64Image) inventoryList[index].image = capturedBase64Image;
         } else {
             inventoryList.push({
-                name: name,
+                name: nameInput,
                 qty: qty,
-                image: capturedBase64Image,
+                image: capturedBase64Image || '',
                 id: 'item_' + Date.now()
             });
         }
-        showToast("Stock IN Saved!");
     } else {
         if (index > -1) {
-            if (inventoryList[index].qty < qty) {
+            if (Number(inventoryList[index].qty) < qty) {
                 alert("Insufficient stock quantity!");
+                submitBtn.disabled = false;
+                submitBtn.innerText = "Confirm Stock OUT";
                 return;
             }
-            inventoryList[index].qty -= qty;
+            inventoryList[index].qty = Number(inventoryList[index].qty) - qty;
             if (inventoryList[index].qty <= 0) inventoryList.splice(index, 1);
-            showToast("Stock OUT Saved!");
         } else {
             alert("Item not found in Inventory!");
+            submitBtn.disabled = false;
+            submitBtn.innerText = "Confirm Stock OUT";
             return;
         }
     }
 
-    await db.collection('inventories').doc(phone).set({
-        items: inventoryList,
-        lastUpdated: new Date().toISOString()
-    }, { merge: true });
+    try {
+        await db.collection('inventories').doc(phone).set({
+            items: inventoryList,
+            lastUpdated: new Date().toISOString()
+        }, { merge: true });
 
-    closeScanPage();
-    renderInventoryList();
+        renderInventoryList();
+        closeScanPage();
+        showToast(activeScanMode === 'in' ? "Stock IN Saved!" : "Stock OUT Saved!");
+    } catch (err) {
+        alert("Failed to save: " + err.message);
+    } finally {
+        submitBtn.disabled = false;
+    }
 }
 
 function renderInventoryList() {
@@ -355,7 +377,9 @@ function renderInventoryList() {
         container.innerHTML = `<p style="text-align:center; padding:20px; color:#888;">No inventory items found.</p>`;
     } else {
         inventoryList.forEach((item, index) => {
-            totalQty += Number(item.qty) || 0;
+            const itemQty = Number(item.qty) || 0;
+            totalQty += itemQty;
+
             const imgHTML = item.image 
                 ? `<img src="${item.image}" style="width:44px; height:44px; object-fit:cover; border-radius:6px; margin-right:12px;">` 
                 : `<div style="width:44px; height:44px; background:#334155; border-radius:6px; margin-right:12px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:#94a3b8;"></i></div>`;
@@ -366,7 +390,7 @@ function renderInventoryList() {
                         ${imgHTML}
                         <div class="stock-info">
                             <h4>${item.name}</h4>
-                            <span class="qty-badge">Qty: ${item.qty}</span>
+                            <span class="qty-badge">Qty: ${itemQty}</span>
                         </div>
                     </div>
                     <button class="btn-delete" onclick="deleteStockItem(${index})"><i class="fas fa-trash"></i></button>
@@ -403,6 +427,63 @@ function updateUserUI(userData) {
     document.getElementById('profName').value = userData.name || '';
     document.getElementById('profFarm').value = userData.farm || '';
     document.getElementById('profPhone').value = userData.phone || '';
+}
+
+function toggleProfileEdit(isEditing) {
+    const nameInput = document.getElementById('profName');
+    const farmInput = document.getElementById('profFarm');
+    const editBtn = document.getElementById('btnEditProfile');
+    const actionBtns = document.getElementById('profileEditActions');
+
+    if (isEditing) {
+        nameInput.removeAttribute('disabled');
+        farmInput.removeAttribute('disabled');
+        nameInput.focus();
+        editBtn.style.display = 'none';
+        actionBtns.classList.remove('hidden');
+    } else {
+        nameInput.setAttribute('disabled', 'true');
+        farmInput.setAttribute('disabled', 'true');
+        editBtn.style.display = 'inline-block';
+        actionBtns.classList.add('hidden');
+
+        if (currentUserData) {
+            updateUserUI(currentUserData);
+        }
+    }
+}
+
+async function saveProfileChanges() {
+    const newName = document.getElementById('profName').value.trim();
+    const newFarm = document.getElementById('profFarm').value.trim();
+    const phone = localStorage.getItem('userPhone');
+
+    if (!newName || !newFarm) {
+        alert("Name and Company/Farm Name cannot be empty.");
+        return;
+    }
+
+    if (!phone) {
+        alert("Session expired, please login again.");
+        return;
+    }
+
+    try {
+        await db.collection('users').doc(phone).set({
+            name: newName,
+            farm: newFarm
+        }, { merge: true });
+
+        currentUserData = { ...currentUserData, name: newName, farm: newFarm };
+        localStorage.setItem('userData', JSON.stringify(currentUserData));
+
+        updateUserUI(currentUserData);
+        toggleProfileEdit(false);
+        showToast("Profile Updated Successfully!");
+
+    } catch (error) {
+        alert("Failed to update profile: " + error.message);
+    }
 }
 
 function showToast(msg) {
