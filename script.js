@@ -22,11 +22,15 @@ let currentUserData = null;
 let activeScanMode = 'in'; // 'in' or 'out'
 let capturedBase64Image = "";
 
+// YOUR PHONE NUMBER FOR WHATSAPP SUPPORT (HIDDEN FROM APP UI)
+const WHATSAPP_NUMBER = "917011162050"; 
+
 document.addEventListener("DOMContentLoaded", () => {
     setTimeout(forceHideSplash, 800);
     setupRecaptcha();
     checkUserAuthentication();
     setupEventListeners();
+    loadSavedTheme();
 });
 
 function forceHideSplash() {
@@ -41,6 +45,32 @@ function setupRecaptcha() {
             'callback': (response) => {}
         });
     }
+}
+
+// WHATSAPP DIRECT LINK SUPPORT (HIDES NUMBER IN UI)
+function openWhatsAppSupport() {
+    const text = encodeURIComponent("Hello, I need support with Ai Stock Manager App.");
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+}
+
+// APP THEME TOGGLE (DARK / LIGHT)
+function changeAppTheme(theme) {
+    const body = document.getElementById('appBody');
+    if (theme === 'light') {
+        body.classList.remove('theme-dark');
+        body.classList.add('theme-light');
+    } else {
+        body.classList.remove('theme-light');
+        body.classList.add('theme-dark');
+    }
+    localStorage.setItem('appTheme', theme);
+}
+
+function loadSavedTheme() {
+    const savedTheme = localStorage.getItem('appTheme') || 'dark';
+    changeAppTheme(savedTheme);
+    const select = document.getElementById('themeSelect');
+    if (select) select.value = savedTheme;
 }
 
 // SWITCH VIEWS
@@ -211,7 +241,7 @@ function retakePhoto() {
     document.getElementById('galleryFileInput').value = '';
 }
 
-// FIX FOR FIRESTORE NESTED ENTITY ISSUE (IMAGE RESIZING)
+// IMAGE RESIZING & SELECTION
 function handleImageSelection(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -231,7 +261,6 @@ function handleImageSelection(event) {
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             
-            // Converting to clean light base64 string
             capturedBase64Image = canvas.toDataURL('image/jpeg', 0.6);
             openCapturedPopupModal();
         };
@@ -259,6 +288,24 @@ function resetCameraScan() {
     document.getElementById('galleryFileInput').value = '';
 }
 
+// MANUAL INVENTORY SELECTION DROPDOWN
+function populateManualSelectDropdown() {
+    const select = document.getElementById('scanItemSelect');
+    select.innerHTML = '<option value="">-- Select Item Manually --</option>';
+
+    inventoryList.forEach(item => {
+        select.innerHTML += `<option value="${item.name}">${item.name} (Available: ${item.qty})</option>`;
+    });
+
+    select.style.display = (activeScanMode === 'out' && inventoryList.length > 0) ? 'block' : 'none';
+}
+
+function onManualDropdownSelect(selectedValue) {
+    if (selectedValue) {
+        document.getElementById('scanItemName').value = selectedValue;
+    }
+}
+
 function processImageWithAI() {
     const loader = document.getElementById('aiScanningLoader');
     const statusText = document.getElementById('aiScanStatus');
@@ -266,6 +313,8 @@ function processImageWithAI() {
 
     loader.classList.remove('hidden');
     formCard.style.opacity = '0.4';
+
+    populateManualSelectDropdown();
 
     statusText.innerText = (activeScanMode === 'out') 
         ? "AI Searching & Matching Inventory..." 
@@ -280,10 +329,12 @@ function processImageWithAI() {
 
             if (matchedItem) {
                 document.getElementById('scanItemName').value = matchedItem.name;
+                document.getElementById('scanItemSelect').value = matchedItem.name;
                 document.getElementById('detectedItemTitle').innerText = "AI Matched: " + matchedItem.name;
                 showToast("AI Matched: " + matchedItem.name);
             } else if (inventoryList.length > 0) {
                 document.getElementById('scanItemName').value = inventoryList[0].name;
+                document.getElementById('scanItemSelect').value = inventoryList[0].name;
                 document.getElementById('detectedItemTitle').innerText = "AI Suggested: " + inventoryList[0].name;
             } else {
                 document.getElementById('detectedItemTitle').innerText = "No Stock Item Found";
@@ -307,7 +358,7 @@ async function confirmScanSubmit() {
     const qty = Number(qtyInput);
 
     if (!nameInput) {
-        alert("Please enter Item Name.");
+        alert("Please enter or select Item Name.");
         return;
     }
     if (isNaN(qty) || qty <= 0) {
@@ -356,7 +407,6 @@ async function confirmScanSubmit() {
     }
 
     try {
-        // Clean JS Objects conversion before sending to Firestore
         const cleanPayload = JSON.parse(JSON.stringify(inventoryList));
 
         await db.collection('inventories').doc(phone).set({
@@ -389,7 +439,7 @@ function renderInventoryList() {
 
             const imgHTML = item.image 
                 ? `<img src="${item.image}" style="width:44px; height:44px; object-fit:cover; border-radius:6px; margin-right:12px;">` 
-                : `<div style="width:44px; height:44px; background:#334155; border-radius:6px; margin-right:12px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:#94a3b8;"></i></div>`;
+                : `<div style="width:44px; height:44px; background:var(--border-color); border-radius:6px; margin-right:12px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:var(--subtext-color);"></i></div>`;
 
             container.innerHTML += `
                 <div class="stock-card">
@@ -510,28 +560,4 @@ function switchTab(tab) {
 function closeMenu() {
     document.getElementById('menuDrawer').classList.remove('open');
     document.getElementById('drawerBackdrop').classList.remove('open');
-}
-
-function logoutUser() {
-    closeMenu();
-    document.getElementById('modalLogoutConfirm').classList.remove('hidden');
-}
-
-function confirmLogoutProcess() {
-    requestCancel('modalLogoutConfirm');
-    auth.signOut();
-    localStorage.clear();
-    inventoryList = [];
-    currentUserData = null;
-    renderInventoryList();
-    showAuthModal();
-    showToast("Signed out successfully!");
-}
-
-function setupEventListeners() {
-    document.getElementById('btnOpenMenu').onclick = () => {
-        document.getElementById('menuDrawer').classList.add('open');
-        document.getElementById('drawerBackdrop').classList.add('open');
-    };
-    document.getElementById('btnCloseMenu').onclick = closeMenu;
-}
+                    }
