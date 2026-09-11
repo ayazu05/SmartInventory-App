@@ -12,9 +12,9 @@ function forceHideSplash() {
     }
 }
 
-// App Entry Point
+// App Initialization
 document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(forceHideSplash, 1000);
+    setTimeout(forceHideSplash, 800);
 
     initFirebaseSafely();
     checkUserAuthentication();
@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setupEventListeners();
 });
 
-// 1. Firebase Safe Initializer
+// 1. Firebase Initializer
 function initFirebaseSafely() {
     try {
         if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
@@ -38,7 +38,7 @@ function initFirebaseSafely() {
     }
 }
 
-// 2. Authentication Flow & Session Guard
+// 2. Authentication Flow & Session Management
 function checkUserAuthentication() {
     const savedPhone = localStorage.getItem('userPhone');
     const savedUserData = localStorage.getItem('userData');
@@ -74,19 +74,19 @@ function hideAuthModal() {
 function switchAuthView(view) {
     document.getElementById('authLoginView').classList.toggle('hidden', view !== 'login');
     document.getElementById('authRegisterView').classList.toggle('hidden', view !== 'register');
-    document.getElementById('authOtpView').classList.add('hidden');
 }
 
-// Instant Login / Registration Handler
+// Process Login & Registration
 async function processAuth(type) {
     if (type === 'login') {
-        const phone = document.getElementById('loginPhone').value.trim();
+        const phoneInput = document.getElementById('loginPhone');
+        const phone = phoneInput ? phoneInput.value.trim() : '';
+
         if (!phone || phone.length < 10) {
             alert("Please enter a valid 10-digit Phone Number");
             return;
         }
 
-        // Fetch User profile from Firestore or create session
         let userData = { phone: phone, name: "User " + phone.slice(-4), farm: "My Farm" };
         
         if (db) {
@@ -98,7 +98,7 @@ async function processAuth(type) {
                     await db.collection('users').doc(phone).set(userData);
                 }
             } catch (e) {
-                console.warn("Auth DB warning, falling back locally:", e);
+                console.warn("Auth DB warning, fallback to local:", e);
             }
         }
 
@@ -111,17 +111,17 @@ async function processAuth(type) {
         const phone = document.getElementById('regPhone').value.trim();
 
         if (!name || !phone || phone.length < 10) {
-            alert("Please fill all required fields correctly!");
+            alert("Please fill Name and a valid 10-digit Phone Number!");
             return;
         }
 
-        const userData = { name, farm, email, phone };
+        const userData = { name, farm: farm || 'My Farm', email, phone };
 
         if (db) {
             try {
                 await db.collection('users').doc(phone).set(userData);
             } catch (e) {
-                console.warn("Could not save user profile to cloud:", e);
+                console.warn("User registration cloud sync error:", e);
             }
         }
 
@@ -143,13 +143,11 @@ function loginUserSession(userData) {
 function updateUserUI(userData) {
     if (!userData) return;
     
-    // Header & Drawer updates
     const nameEl = document.getElementById('menuUserName');
     const farmEl = document.getElementById('menuUserFarm');
     if (nameEl) nameEl.innerText = userData.name || 'User';
     if (farmEl) farmEl.innerText = userData.farm || 'My Farm';
 
-    // Profile Tab Inputs
     const pName = document.getElementById('profName');
     const pFarm = document.getElementById('profFarm');
     const pEmail = document.getElementById('profEmail');
@@ -163,9 +161,12 @@ function updateUserUI(userData) {
 
 function logoutUser() {
     if (confirm("Are you sure you want to Sign Out?")) {
+        const currentPhone = localStorage.getItem('userPhone');
+        if (currentPhone) {
+            localStorage.removeItem('inventory_' + currentPhone);
+        }
         localStorage.removeItem('userPhone');
         localStorage.removeItem('userData');
-        localStorage.removeItem('localInventoryData');
         
         inventoryList = [];
         currentUserData = null;
@@ -177,12 +178,11 @@ function logoutUser() {
     }
 }
 
-// 3. User Specific Inventory Management
+// 3. Inventory Management (User Isolated)
 function loadUserInventory() {
     const phone = localStorage.getItem('userPhone');
     if (!phone) return;
 
-    // Load Local User Cache
     const localKey = 'inventory_' + phone;
     const saved = localStorage.getItem(localKey);
     if (saved) {
@@ -223,7 +223,7 @@ async function fetchCloudInventory() {
     }
 }
 
-// 4. Add / Deduct Inventory Actions
+// 4. Stock Actions
 async function uploadToCloudProcess() {
     const nameInput = document.getElementById('prodName');
     const qtyInput = document.getElementById('prodQty');
@@ -254,7 +254,6 @@ async function uploadToCloudProcess() {
 
     saveUserInventory();
 
-    // Push to Firestore under User Phone Document
     const phone = localStorage.getItem('userPhone');
     if (db && phone) {
         try {
@@ -290,7 +289,7 @@ function deleteStockItem(index) {
     }
 }
 
-// 5. UI Render Helpers
+// 5. UI Renders
 function renderInventoryList() {
     const container = document.getElementById('stockListContainer');
     const totalItemsEl = document.getElementById('statTotalItems');
@@ -422,6 +421,5 @@ function handleStockIn() {
 }
 
 function handleStockOut() {
-    const modal = document.getElementById('modalStockOutSelect');
-    if (modal) modal.classList.remove('hidden');
+    alert("Use 'Stock IN' to add or update item quantities.");
 }
