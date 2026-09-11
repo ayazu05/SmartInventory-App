@@ -20,7 +20,6 @@ let confirmationResultObj = null;
 let inventoryList = [];
 let currentUserData = null;
 let activeScanMode = 'in'; // 'in' or 'out'
-let currentStream = null;
 let capturedBase64Image = null;
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -192,65 +191,38 @@ function showAuthModal() { document.getElementById('authOverlay').classList.remo
 function hideAuthModal() { document.getElementById('authOverlay').classList.add('hidden'); }
 
 // DEDICATED SCAN CAMERA FUNCTIONS
-async function openScanPage(mode) {
+function openScanPage(mode) {
     activeScanMode = mode;
     document.getElementById('scanPageTitle').innerText = (mode === 'in') ? "Stock IN - Scan Item" : "Stock OUT - Scan & AI Match";
     document.getElementById('scanPage').classList.remove('hidden');
-    
     resetCameraScan();
-    await startCameraStream();
-}
-
-async function startCameraStream() {
-    const video = document.getElementById('cameraVideo');
-    try {
-        currentStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: "environment" } },
-            audio: false
-        });
-        video.srcObject = currentStream;
-    } catch (err) {
-        console.warn("Direct camera access failed, fallback to file upload.");
-    }
-}
-
-function stopCameraStream() {
-    if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-        currentStream = null;
-    }
 }
 
 function closeScanPage() {
-    stopCameraStream();
     document.getElementById('scanPage').classList.add('hidden');
 }
 
-function capturePhoto() {
-    const video = document.getElementById('cameraVideo');
-    const canvas = document.getElementById('cameraCanvas');
-    const preview = document.getElementById('previewCapturedImg');
+// HANDLER FOR NATIVE MOBILE CAMERA CAPTURE
+function handleNativeCameraUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-    if (video.srcObject) {
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        capturedBase64Image = canvas.toDataURL('image/jpeg');
-    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        capturedBase64Image = e.target.result;
+        const preview = document.getElementById('previewCapturedImg');
+        const placeholder = document.getElementById('placeholderView');
 
-    if (!capturedBase64Image) {
-        alert("Could not capture photo.");
-        return;
-    }
+        preview.src = capturedBase64Image;
+        preview.classList.remove('hidden');
+        if (placeholder) placeholder.style.display = 'none';
 
-    preview.src = capturedBase64Image;
-    preview.classList.remove('hidden');
-    video.style.display = 'none';
-
-    processImageWithAI();
+        processImageWithAI();
+    };
+    reader.readAsDataURL(file);
 }
 
+// HANDLER FOR GALLERY UPLOAD
 function handleGalleryUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -259,11 +231,11 @@ function handleGalleryUpload(event) {
     reader.onload = (e) => {
         capturedBase64Image = e.target.result;
         const preview = document.getElementById('previewCapturedImg');
-        const video = document.getElementById('cameraVideo');
+        const placeholder = document.getElementById('placeholderView');
 
         preview.src = capturedBase64Image;
         preview.classList.remove('hidden');
-        video.style.display = 'none';
+        if (placeholder) placeholder.style.display = 'none';
 
         processImageWithAI();
     };
@@ -273,12 +245,17 @@ function handleGalleryUpload(event) {
 function resetCameraScan() {
     capturedBase64Image = null;
     document.getElementById('previewCapturedImg').classList.add('hidden');
-    document.getElementById('cameraVideo').style.display = 'block';
+    const placeholder = document.getElementById('placeholderView');
+    if (placeholder) placeholder.style.display = 'block';
+
     document.getElementById('aiScanningLoader').classList.add('hidden');
     document.getElementById('scanFormCard').classList.add('hidden');
     document.getElementById('scanControls').style.display = 'flex';
     document.getElementById('scanItemName').value = '';
     document.getElementById('scanItemQty').value = '';
+
+    document.getElementById('nativeCameraInput').value = '';
+    document.getElementById('galleryFileInput').value = '';
 }
 
 // AI MATCHING LOGIC
@@ -297,12 +274,11 @@ function processImageWithAI() {
         document.getElementById('scanFormCard').classList.remove('hidden');
 
         if (activeScanMode === 'out') {
-            // Simulated AI Image Matching with Saved Inventory
             const matchedItem = inventoryList.find(item => item.image);
 
             if (matchedItem) {
                 document.getElementById('scanItemName').value = matchedItem.name;
-                document.getElementById('detectedItemTitle').innerText = "AI Match Found: " + matchedItem.name;
+                document.getElementById('detectedItemTitle').innerText = "AI Matched: " + matchedItem.name;
                 showToast("AI Matched: " + matchedItem.name);
             } else if (inventoryList.length > 0) {
                 document.getElementById('scanItemName').value = inventoryList[0].name;
