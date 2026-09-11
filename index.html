@@ -148,12 +148,12 @@
                 <label for="nativeCameraInput" class="btn btn-primary" style="flex: 1; padding: 14px; font-size: 0.95rem; text-align: center;">
                     <i class="fas fa-camera"></i> Native Camera
                 </label>
-                <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleNativeCameraUpload(event)">
+                <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelection(event)">
 
                 <label for="galleryFileInput" class="btn btn-secondary" style="flex: 1; padding: 14px; font-size: 0.95rem; text-align: center;">
                     <i class="fas fa-image"></i> Gallery
                 </label>
-                <input type="file" id="galleryFileInput" accept="image/*" style="display:none;" onchange="handleGalleryUpload(event)">
+                <input type="file" id="galleryFileInput" accept="image/*" style="display:none;" onchange="handleImageSelection(event)">
             </div>
             
             <button class="btn btn-danger btn-full" onclick="closeScanPage()" style="margin-top: 10px;">Cancel & Go to Dashboard</button>
