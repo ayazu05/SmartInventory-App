@@ -19,10 +19,10 @@ const db = firebase.firestore();
 let confirmationResultObj = null;
 let inventoryList = [];
 let currentUserData = null;
-let activeScanMode = 'in'; // 'in' or 'out'
+let activeScanMode = 'in';
 let capturedBase64Image = "";
 
-// YOUR PHONE NUMBER FOR WHATSAPP SUPPORT (HIDDEN FROM APP UI)
+// WHATSAPP SUPPORT NUMBER
 const WHATSAPP_NUMBER = "917011162050"; 
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -50,7 +50,8 @@ function setupRecaptcha() {
 // WHATSAPP DIRECT LINK SUPPORT (HIDES NUMBER IN UI)
 function openWhatsAppSupport() {
     const text = encodeURIComponent("Hello, I need support with Ai Stock Manager App.");
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${text}`, '_blank');
+    const link = `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
+    window.open(link, '_blank');
 }
 
 // APP THEME TOGGLE (DARK / LIGHT)
@@ -288,16 +289,18 @@ function resetCameraScan() {
     document.getElementById('galleryFileInput').value = '';
 }
 
-// MANUAL INVENTORY SELECTION DROPDOWN
+// MANUAL INVENTORY SELECTION DROPDOWN (Stock IN & OUT Dono me visible)
 function populateManualSelectDropdown() {
     const select = document.getElementById('scanItemSelect');
-    select.innerHTML = '<option value="">-- Select Item Manually --</option>';
+    select.innerHTML = '<option value="">-- Choose Existing Item Manually --</option>';
 
-    inventoryList.forEach(item => {
-        select.innerHTML += `<option value="${item.name}">${item.name} (Available: ${item.qty})</option>`;
-    });
-
-    select.style.display = (activeScanMode === 'out' && inventoryList.length > 0) ? 'block' : 'none';
+    if (inventoryList.length > 0) {
+        inventoryList.forEach(item => {
+            select.innerHTML += `<option value="${item.name}">${item.name} (Qty: ${item.qty})</option>`;
+        });
+    } else {
+        select.innerHTML = '<option value="">No Items in Inventory Yet</option>';
+    }
 }
 
 function onManualDropdownSelect(selectedValue) {
@@ -342,7 +345,7 @@ function processImageWithAI() {
             document.getElementById('btnSaveScanResult').className = "btn btn-danger btn-full";
             document.getElementById('btnSaveScanResult').innerText = "Confirm Stock OUT";
         } else {
-            document.getElementById('detectedItemTitle').innerText = "New Item Details";
+            document.getElementById('detectedItemTitle').innerText = "Item Details";
             document.getElementById('btnSaveScanResult').className = "btn btn-primary btn-full";
             document.getElementById('btnSaveScanResult').innerText = "Confirm Stock IN";
         }
@@ -431,7 +434,7 @@ function renderInventoryList() {
     let totalQty = 0;
 
     if (inventoryList.length === 0) {
-        container.innerHTML = `<p style="text-align:center; padding:20px; color:#888;">No inventory items found.</p>`;
+        container.innerHTML = `<p style="text-align:center; padding:20px; color: var(--subtext-color);">No inventory items found.</p>`;
     } else {
         inventoryList.forEach((item, index) => {
             const itemQty = Number(item.qty) || 0;
@@ -560,4 +563,28 @@ function switchTab(tab) {
 function closeMenu() {
     document.getElementById('menuDrawer').classList.remove('open');
     document.getElementById('drawerBackdrop').classList.remove('open');
-                    }
+}
+
+function logoutUser() {
+    closeMenu();
+    document.getElementById('modalLogoutConfirm').classList.remove('hidden');
+}
+
+function confirmLogoutProcess() {
+    requestCancel('modalLogoutConfirm');
+    auth.signOut();
+    localStorage.clear();
+    inventoryList = [];
+    currentUserData = null;
+    renderInventoryList();
+    showAuthModal();
+    showToast("Signed out successfully!");
+}
+
+function setupEventListeners() {
+    document.getElementById('btnOpenMenu').onclick = () => {
+        document.getElementById('menuDrawer').classList.add('open');
+        document.getElementById('drawerBackdrop').classList.add('open');
+    };
+    document.getElementById('btnCloseMenu').onclick = closeMenu;
+}
