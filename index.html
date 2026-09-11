@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ai Stock Manager</title>
+    <!-- Modern Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="theme-dark">
+
+    <!-- Splash / Loading Screen -->
+    <div id="appSplashLoader" class="splash-screen">
+        <div class="splash-content">
+            <img src="Logo.png" alt="Logo" class="splash-logo-img">
+            <h2>Ai Stock Manager</h2>
+            <div class="splash-spinner"></div>
+        </div>
+    </div>
+
+    <!-- Firebase reCAPTCHA Container -->
+    <div id="recaptcha-container"></div>
+
+    <!-- Glassmorphic Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <button id="btnOpenMenu" class="icon-btn" title="Open Menu"><i class="fas fa-bars-staggered"></i></button>
+            <div class="brand">
+                <img src="Logo.png" alt="Logo" class="header-logo-img">
+                <span>Ai Stock Manager</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="status-pill green">
+                <span class="dot"></span> Live Cloud
+            </div>
+            <button class="avatar-btn" onclick="switchTab('profile')" title="Profile">
+                <i class="fas fa-user-gear"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Navigation Drawer Overlay -->
+    <div id="drawerBackdrop" class="drawer-backdrop"></div>
+    <aside id="menuDrawer" class="menu-drawer pos-left">
+        <div class="drawer-header">
+            <div class="drawer-brand">
+                <i class="fas fa-layer-group"></i> Navigation
+            </div>
+            <button id="btnCloseMenu" class="icon-btn"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="drawer-profile-preview">
+            <div class="preview-avatar"><i class="fas fa-user"></i></div>
+            <div class="preview-info">
+                <h4 id="menuUserName">User Name</h4>
+                <p id="menuUserFarm">Farm Name</p>
+            </div>
+        </div>
+        <nav class="drawer-nav">
+            <button class="nav-item active" onclick="switchTab('stocks'); closeMenu();"><i class="fas fa-boxes-stacked"></i> Dashboard & Stocks</button>
+            <button class="nav-item stock-in-item" onclick="handleStockIn(); closeMenu();"><i class="fas fa-arrow-down-left-and-arrow-up-right-to-inside"></i> Quick Stock IN</button>
+            <button class="nav-item stock-out-item" onclick="handleStockOut(); closeMenu();"><i class="fas fa-arrow-up-right-from-square"></i> Quick Stock OUT</button>
+            <div class="nav-divider"></div>
+            <button class="nav-item" onclick="switchTab('profile'); closeMenu();"><i class="fas fa-id-card"></i> User Profile</button>
+            <button class="nav-item" onclick="switchTab('settings'); closeMenu();"><i class="fas fa-sliders"></i> App Settings</button>
+            <button class="nav-item logout-btn" onclick="logoutUser()"><i class="fas fa-power-off"></i> Sign Out</button>
+        </nav>
+    </aside>
+
+    <!-- Main Container -->
+    <main class="main-content">
+
+        <!-- TAB 1: STOCKS -->
+        <section id="tabStocks" class="tab-content active">
+            
+            <!-- Dashboard Quick Stats Card -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon bg-blue"><i class="fas fa-box-archive"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Total Items</span>
+                        <h3 id="statTotalItems">0</h3>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon bg-emerald"><i class="fas fa-cubes-stacked"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-label">Total Stock Qty</span>
+                        <h3 id="statTotalQty">0</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-bar">
+                <button class="btn btn-stock-in" onclick="handleStockIn()">
+                    <i class="fas fa-circle-plus"></i> Stock IN
+                </button>
+                <button class="btn btn-stock-out" onclick="handleStockOut()">
+                    <i class="fas fa-circle-minus"></i> Stock OUT
+                </button>
+            </div>
+
+            <!-- Search and Filter Bar -->
+            <div class="search-bar-card">
+                <i class="fas fa-magnifying-glass search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Search item name..." oninput="filterInventory()">
+            </div>
+
+            <!-- AI Status Card -->
+            <div id="aiDownloadContainer" class="card ai-card hidden">
+                <div class="ai-header">
+                    <span><i class="fas fa-wand-magic-sparkles"></i> Initializing Smart Engine</span>
+                </div>
+            </div>
+
+            <!-- Inventory List Section -->
+            <div class="section-title-bar">
+                <h3><i class="fas fa-list-check"></i> Inventory Records</h3>
+            </div>
+            <div id="stockListContainer" class="stock-list">
+                <div class="empty-state">
+                    <i class="fas fa-box-open"></i>
+                    <p>No stock items available in your cloud database.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: PROFILE -->
+        <section id="tabProfile" class="tab-content">
+            <div class="card profile-card">
+                <div class="profile-header-bar">
+                    <button class="icon-btn" onclick="switchTab('stocks')" title="Back">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <h2>User Profile</h2>
+                    <button id="btnProfileEdit" class="btn btn-secondary btn-sm" onclick="toggleProfileEdit(true)">
+                        <i class="fas fa-user-pen"></i> Edit
+                    </button>
+                </div>
+
+                <div class="profile-avatar-large">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label><i class="fas fa-user"></i> Full Name</label>
+                        <input type="text" id="profName" placeholder="Enter Full Name" disabled>
+                    </div>
+                    <div class="input-group">
+                        <label><i class="fas fa-wheat-awn"></i> Farm / Business Name</label>
+                        <input type="text" id="profFarm" placeholder="Enter Farm Name" disabled>
+                    </div>
+                    <div class="input-group">
+                        <label><i class="fas fa-envelope"></i> Email Address</label>
+                        <input type="email" id="profEmail" placeholder="Enter Email" disabled>
+                    </div>
+                    <div class="input-group">
+                        <label><i class="fas fa-phone"></i> Mobile Phone</label>
+                        <input type="text" id="profPhone" placeholder="+91..." disabled>
+                    </div>
+                </div>
+
+                <div id="profileEditActions" class="edit-actions-bar hidden">
+                    <button class="btn btn-secondary" onclick="toggleProfileEdit(false)">
+                        <i class="fas fa-xmark"></i> Cancel
+                    </button>
+                    <button class="btn btn-primary" onclick="saveProfileChanges()">
+                        <i class="fas fa-floppy-disk"></i> Save Cloud
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: SETTINGS -->
+        <section id="tabSettings" class="tab-content">
+            <div class="card settings-card">
+                <div class="card-title">
+                    <i class="fas fa-gears"></i> App Settings
+                </div>
+                <div class="setting-item">
+                    <div class="setting-text">
+                        <h4>Appearance Theme</h4>
+                        <p>Switch between modern dark and clean light modes</p>
+                    </div>
+                    <select onchange="changeTheme(this.value)" class="modern-select">
+                        <option value="dark" selected>Dark Slate Theme</option>
+                        <option value="light">Light Crisp Theme</option>
+                    </select>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-text">
+                        <h4>Menu Position</h4>
+                        <p>Position side drawer on left or right side</p>
+                    </div>
+                    <select onchange="changeMenuPosition(this.value)" class="modern-select">
+                        <option value="left" selected>Left Side Drawer</option>
+                        <option value="right">Right Side Drawer</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Hidden Input Controls for Camera/Gallery -->
+    <input type="file" id="inputCamera" accept="image/*" capture="environment" class="hidden">
+    <input type="file" id="inputFile" accept="image/*" class="hidden">
+
+    <!-- MODAL: AUTH / LOGIN / REGISTER -->
+    <div id="authOverlay" class="modal-overlay hidden">
+        <div class="modal-card glassmorphism">
+            <div class="auth-header">
+                <i class="fas fa-shield-halved auth-icon"></i>
+                <h2 id="authTitle">Cloud Login</h2>
+                <p>Access your real-time inventory from anywhere</p>
+            </div>
+
+            <!-- Login Form -->
+            <div id="authLoginView" class="auth-view">
+                <div class="input-group">
+                    <label>Mobile Number</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-phone"></i>
+                        <input type="tel" id="loginPhone" placeholder="10-Digit Mobile Number">
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-full" onclick="sendAuthOtp('login')">
+                    <i class="fas fa-paper-plane"></i> Send OTP Code
+                </button>
+                <p class="auth-switch-text">New User? <span onclick="switchAuthView('register')">Create Account</span></p>
+            </div>
+
+            <!-- Register Form -->
+            <div id="authRegisterView" class="auth-view hidden">
+                <div class="input-group">
+                    <label>Full Name</label>
+                    <input type="text" id="regName" placeholder="e.g. Ramesh Kumar">
+                </div>
+                <div class="input-group">
+                    <label>Farm / Business Name</label>
+                    <input type="text" id="regFarm" placeholder="e.g. Green Agro Tech">
+                </div>
+                <div class="input-group">
+                    <label>Email Address</label>
+                    <input type="email" id="regEmail" placeholder="ramesh@gmail.com">
+                </div>
+                <div class="input-group">
+                    <label>Mobile Phone Number</label>
+                    <input type="tel" id="regPhone" placeholder="10-Digit Mobile Number">
+                </div>
+                <button class="btn btn-primary btn-full" onclick="sendAuthOtp('register')">
+                    <i class="fas fa-user-plus"></i> Register & Verify OTP
+                </button>
+                <p class="auth-switch-text">Already registered? <span onclick="switchAuthView('login')">Sign In</span></p>
+            </div>
+
+            <!-- OTP Form -->
+            <div id="authOtpView" class="auth-view hidden">
+                <p class="otp-hint">Enter verification OTP code sent to your mobile (Default: <strong>123456</strong>)</p>
+                <div class="input-group">
+                    <input type="number" id="authOtpInput" placeholder="• • • • • •" class="otp-input" maxlength="6">
+                </div>
+                <button class="btn btn-primary btn-full" onclick="verifyAuthOtp()">
+                    <i class="fas fa-lock"></i> Verify & Sign In
+                </button>
+                <button class="btn btn-secondary btn-full mt-2" onclick="cancelAuthFlow()">Back</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Source Selection -->
+    <div id="modalSource" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3 id="sourceTitle"><i class="fas fa-camera"></i> Select Photo Source</h3>
+            <div class="source-actions">
+                <button class="btn btn-source" onclick="triggerCamera('camera')">
+                    <i class="fas fa-camera-retro"></i> Camera
+                </button>
+                <button class="btn btn-source" onclick="triggerCamera('gallery')">
+                    <i class="fas fa-images"></i> Gallery
+                </button>
+            </div>
+            <button class="btn btn-secondary btn-full" onclick="requestCancel('modalSource')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- MODAL: Stock OUT Select -->
+    <div id="modalStockOutSelect" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3><i class="fas fa-dolly"></i> Select Stock Item</h3>
+            <div id="manualStockList" class="select-stock-container"></div>
+            <button class="btn btn-secondary btn-full mt-3" onclick="requestCancel('modalStockOutSelect')">Cancel</button>
+        </div>
+    </div>
+
+    <!-- MODAL: Preview Image -->
+    <div id="modalPreview" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3><i class="fas fa-image"></i> Item Preview</h3>
+            <div class="image-preview-wrapper">
+                <img id="imgPreview" src="" alt="Preview">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="requestCancel('modalPreview')">Cancel</button>
+                <button class="btn btn-primary" onclick="proceedToDetails()">Continue <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Details Entry -->
+    <div id="modalDetails" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3 id="detailsModalTitle"><i class="fas fa-pen-to-square"></i> Stock Entry Details</h3>
+            <div class="input-group">
+                <label>Product Name</label>
+                <input type="text" id="prodName" placeholder="e.g. Urea Fertilizer 50kg">
+            </div>
+            <div class="input-group">
+                <label>Quantity</label>
+                <input type="number" id="prodQty" placeholder="e.g. 25">
+                <small id="qtyLimitHint" class="hint-text hidden"></small>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="requestCancel('modalDetails')">Cancel</button>
+                <button id="btnSubmitCloud" class="btn btn-primary" onclick="uploadToCloudProcess()">
+                    <i class="fas fa-cloud-arrow-up"></i> Save Item
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Upload Progress -->
+    <div id="modalUploadProgress" class="modal-overlay hidden">
+        <div class="modal-card align-center">
+            <h3 id="uploadModalTitle">Syncing with Cloud Database...</h3>
+            <div class="progress-bar-bg">
+                <div id="uploadProgressBar" class="progress-bar-fill"></div>
+            </div>
+            <span id="uploadPercentText" class="percent-txt">0%</span>
+        </div>
+    </div>
+
+    <!-- MODAL: Custom Confirmation -->
+    <div id="customConfirmModal" class="modal-overlay hidden">
+        <div class="modal-card align-center">
+            <i id="confirmIcon" class="fas fa-circle-question confirm-dialog-icon"></i>
+            <h3 id="confirmModalTitle">Confirm Action</h3>
+            <p id="confirmModalText">Are you sure you want to proceed?</p>
+            <div class="modal-actions">
+                <button id="btnConfirmNo" class="btn btn-secondary">No, Cancel</button>
+                <button id="btnConfirmYes" class="btn btn-primary">Yes, Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="successPopUp" class="toast-popup hidden">
+        <i class="fas fa-circle-check"></i>
+        <span id="popUpMessage">Successfully saved!</span>
+    </div>
+
+    <script src="script.js" defer></script>
+</body>
+</html>
