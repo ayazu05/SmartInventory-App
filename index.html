@@ -90,67 +90,103 @@
             <div id="stockListContainer" class="stock-list"></div>
         </section>
 
+        <!-- PROFILE SECTION -->
         <section id="tabProfile" class="tab-content">
             <div class="profile-card">
-                <h2>User Profile</h2>
-                <div class="form-grid">
-                    <input type="text" id="profName" disabled placeholder="Name">
-                    <input type="text" id="profFarm" disabled placeholder="Farm Name">
-                    <input type="text" id="profPhone" disabled placeholder="Phone">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2 style="margin:0;">User Profile</h2>
+                    <button id="btnEditProfile" class="btn btn-secondary" onclick="toggleProfileEdit(true)" style="padding: 6px 14px; font-size: 0.85rem;">
+                        <i class="fas fa-pen"></i> Edit
+                    </button>
+                </div>
+
+                <div class="form-grid" style="display: flex; flex-direction: column; gap: 12px;">
+                    <div class="input-group">
+                        <label style="font-size:0.8rem; color:#94a3b8;">Your Name</label>
+                        <input type="text" id="profName" disabled placeholder="Name">
+                    </div>
+                    <div class="input-group">
+                        <label style="font-size:0.8rem; color:#94a3b8;">Farm / Company Name</label>
+                        <input type="text" id="profFarm" disabled placeholder="Farm Name">
+                    </div>
+                    <div class="input-group">
+                        <label style="font-size:0.8rem; color:#94a3b8;">Phone Number (Read Only)</label>
+                        <input type="text" id="profPhone" disabled placeholder="Phone" style="opacity: 0.6;">
+                    </div>
+                </div>
+
+                <div id="profileEditActions" class="modal-actions hidden" style="margin-top: 18px; gap: 10px;">
+                    <button class="btn btn-secondary" style="flex:1;" onclick="toggleProfileEdit(false)">Cancel</button>
+                    <button class="btn btn-primary" style="flex:1;" onclick="saveProfileChanges()">Save Changes</button>
                 </div>
             </div>
         </section>
     </main>
 
-    <!-- FULL SCREEN CAMERA & SCAN PAGE -->
+    <!-- FULL SCREEN SCAN PAGE (Source selector) -->
     <div id="scanPage" class="scan-page-overlay hidden">
         <div class="scan-header">
             <button class="icon-btn" onclick="closeScanPage()"><i class="fas fa-arrow-left"></i></button>
-            <h3 id="scanPageTitle">Stock IN - Scan Item</h3>
+            <h3 id="scanPageTitle">Select Photo Source</h3>
             <div style="width: 24px;"></div>
         </div>
 
         <div class="camera-viewport">
-            <img id="previewCapturedImg" class="captured-preview hidden" alt="Captured Preview">
             <div id="placeholderView" style="text-align:center; padding:20px; color:#94a3b8;">
-                <i class="fas fa-camera" style="font-size:3rem; margin-bottom:12px; color:#3b82f6;"></i>
-                <p>Click "Native Camera" below to use Zoom & Auto-Focus</p>
+                <i class="fas fa-camera" style="font-size:3.5rem; margin-bottom:12px; color:#3b82f6;"></i>
+                <p>Click "Native Camera" or "Gallery" below to select stock image</p>
             </div>
         </div>
 
-        <!-- AI LOADING OVERLAY -->
-        <div id="aiScanningLoader" class="ai-loader-container hidden">
-            <div class="ai-scan-line"></div>
-            <div class="ai-spinner"></div>
-            <p id="aiScanStatus">AI Scanning & Matching Inventory Images...</p>
-        </div>
-
-        <!-- FORM CONTROLS AFTER CAPTURE -->
-        <div id="scanFormCard" class="scan-form-card hidden">
-            <h4 id="detectedItemTitle">Item Details</h4>
-            <input type="text" id="scanItemName" placeholder="Item Name">
-            <input type="number" id="scanItemQty" placeholder="Quantity">
-            <div class="modal-actions mt-2">
-                <button class="btn btn-secondary" onclick="resetCameraScan()">Retake Photo</button>
-                <button class="btn btn-primary" id="btnSaveScanResult" onclick="confirmScanSubmit()">Confirm & Save</button>
-            </div>
-        </div>
-
-        <!-- NATIVE CAMERA & GALLERY CONTROLS -->
+        <!-- CAMERA & GALLERY CONTROLS -->
         <div id="scanControls" class="scan-controls">
             <div class="scan-sub-actions" style="display: flex; gap: 12px; width: 100%;">
-                <label for="nativeCameraInput" class="btn btn-primary" style="flex: 1; padding: 14px; font-size: 0.95rem;">
+                <label for="nativeCameraInput" class="btn btn-primary" style="flex: 1; padding: 14px; font-size: 0.95rem; text-align: center;">
                     <i class="fas fa-camera"></i> Native Camera
                 </label>
                 <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleNativeCameraUpload(event)">
 
-                <label for="galleryFileInput" class="btn btn-secondary" style="flex: 1; padding: 14px; font-size: 0.95rem;">
+                <label for="galleryFileInput" class="btn btn-secondary" style="flex: 1; padding: 14px; font-size: 0.95rem; text-align: center;">
                     <i class="fas fa-image"></i> Gallery
                 </label>
                 <input type="file" id="galleryFileInput" accept="image/*" style="display:none;" onchange="handleGalleryUpload(event)">
             </div>
             
-            <button class="btn btn-danger btn-full" onclick="closeScanPage()" style="margin-top: 8px;">Cancel</button>
+            <button class="btn btn-danger btn-full" onclick="closeScanPage()" style="margin-top: 10px;">Cancel & Go to Dashboard</button>
+        </div>
+    </div>
+
+    <!-- NEW CONFIRMATION POPUP MODAL WITH RETAKE/CONFIRM/CANCEL -->
+    <div id="photoResultModal" class="modal-overlay hidden">
+        <div class="modal-card scan-modal-card">
+            <div class="modal-header-custom">
+                <h3 id="modalPageTitle">Confirm Stock Details</h3>
+                <button class="icon-btn" onclick="closeScanPage()"><i class="fas fa-xmark"></i></button>
+            </div>
+
+            <div class="popup-image-container">
+                <img id="previewCapturedImg" class="popup-captured-preview" alt="Captured Preview">
+            </div>
+
+            <!-- AI LOADER INSIDE POPUP -->
+            <div id="aiScanningLoader" class="ai-loader-container hidden">
+                <div class="ai-spinner"></div>
+                <p id="aiScanStatus">AI Processing Image...</p>
+            </div>
+
+            <div id="scanFormCard" class="scan-form-card">
+                <h4 id="detectedItemTitle">Item Details</h4>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+                    <input type="text" id="scanItemName" placeholder="Item Name">
+                    <input type="number" id="scanItemQty" placeholder="Quantity">
+                </div>
+            </div>
+
+            <div class="modal-actions-stacked mt-2">
+                <button class="btn btn-primary btn-full" id="btnSaveScanResult" onclick="confirmScanSubmit()">Confirm & Save</button>
+                <button class="btn btn-secondary btn-full" onclick="retakePhoto()">Retake Photo</button>
+                <button class="btn btn-danger btn-full" onclick="closeScanPage()">Cancel (Go to Dashboard)</button>
+            </div>
         </div>
     </div>
 
