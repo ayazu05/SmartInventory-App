@@ -75,7 +75,7 @@ body.theme-dark {
 }
 .status-pill .dot { width: 6px; height: 6px; background: #4ade80; border-radius: 50%; }
 
-/* Drawer */
+/* Drawer Navigation */
 .drawer-backdrop {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.6); z-index: 200;
@@ -107,7 +107,7 @@ body.theme-dark {
 .nav-divider { height: 1px; background: #334155; margin: 8px 0; }
 .logout-btn { color: #f87171; }
 
-/* Main Content */
+/* Main Content Area */
 .main-content { padding: 16px; max-width: 600px; margin: 0 auto; }
 .tab-content { display: none; }
 .tab-content.active { display: block; }
@@ -150,7 +150,7 @@ body.theme-dark {
 .qty-badge { font-size: 0.8rem; color: #38bdf8; font-weight: 600; }
 .btn-delete { background: none; border: none; color: #f87171; cursor: pointer; padding: 6px; }
 
-/* Camera Scan Page */
+/* Camera Scan Screen Overlay */
 .scan-page-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: #0f172a; z-index: 300; display: flex; flex-direction: column;
@@ -161,7 +161,7 @@ body.theme-dark {
     display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
 
-/* Modal Popup & Captured Photo Styling */
+/* Modal Popup & Photo Preview */
 .scan-modal-card {
     max-width: 480px; width: 92%; max-height: 90vh; overflow-y: auto;
 }
