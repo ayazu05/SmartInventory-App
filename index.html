@@ -102,10 +102,10 @@
         </section>
     </main>
 
-    <!-- AUTHENTICATION OVERLAY (SEPARATE LOGIN AND SIGNUP SCREEN) -->
+    <!-- AUTHENTICATION OVERLAY -->
     <div id="authOverlay" class="modal-overlay hidden">
         
-        <!-- 1. SEPARATE LOGIN CARD -->
+        <!-- LOGIN CARD -->
         <div id="authLoginCard" class="modal-card">
             <div class="auth-header">
                 <h2>Account Login</h2>
@@ -135,7 +135,7 @@
             </div>
         </div>
 
-        <!-- 2. SEPARATE SIGN UP CARD -->
+        <!-- SIGN UP CARD -->
         <div id="authSignUpCard" class="modal-card" style="display: none;">
             <div class="auth-header">
                 <h2>New User Registration</h2>
@@ -166,12 +166,17 @@
 
     </div>
 
-    <!-- STOCK IN MODAL -->
+    <!-- STOCK IN MODAL (WITH CAMERA AND FILE MANAGER UPLOAD) -->
     <div id="modalDetails" class="modal-overlay hidden">
         <div class="modal-card">
             <h3>Stock IN (Add Quantity)</h3>
             <input type="text" id="prodName" placeholder="Item Name">
             <input type="number" id="prodQty" placeholder="Quantity to Add">
+            
+            <!-- IMAGE CAPTURE/UPLOAD OPTION -->
+            <label style="display: block; font-size: 0.8rem; color: #94a3b8; margin-top: 6px; margin-bottom: 4px;">Item Photo (Camera / Files)</label>
+            <input type="file" id="prodImageInput" accept="image/*" capture="environment" style="padding: 6px;">
+
             <div class="modal-actions mt-2">
                 <button class="btn btn-secondary" onclick="requestCancel('modalDetails')">Cancel</button>
                 <button class="btn btn-primary" onclick="uploadToCloudProcess('in')">Save Stock IN</button>
@@ -192,11 +197,11 @@
         </div>
     </div>
 
-    <!-- CUSTOM LOGOUT CONFIRMATION MODAL -->
+    <!-- LOGOUT MODAL -->
     <div id="modalLogoutConfirm" class="modal-overlay hidden">
         <div class="modal-card">
             <h3>Confirm Sign Out</h3>
-            <p style="font-size: 0.9rem; color: #9ca3af; margin-bottom: 15px;">Are you sure you want to sign out from your account?</p>
+            <p style="font-size: 0.9rem; color: #9ca3af; margin-bottom: 15px;">Are you sure you want to sign out?</p>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="requestCancel('modalLogoutConfirm')">Cancel</button>
                 <button class="btn btn-danger" onclick="confirmLogoutProcess()">Sign Out</button>
