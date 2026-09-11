@@ -71,14 +71,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    if (savedPhone) {
-        document.getElementById('authOverlay')?.classList.add('hidden');
-        await fetchUserDataAndSync(savedPhone);
-    } else {
-        document.getElementById('authOverlay')?.classList.remove('hidden');
-    }
-    
-    // Load Offline Backup while Cloud Listener loads
+    // First load offline cache fast
     const offlineBackup = localStorage.getItem('localInventoryData');
     if (offlineBackup) {
         try {
@@ -86,6 +79,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderInventory();
             updateStats();
         } catch(e) {}
+    }
+
+    if (savedPhone) {
+        document.getElementById('authOverlay')?.classList.add('hidden');
+        await fetchUserDataAndSync(savedPhone);
+    } else {
+        document.getElementById('authOverlay')?.classList.remove('hidden');
     }
 });
 
@@ -263,7 +263,7 @@ async function fetchUserDataAndSync(phone) {
 
 // Core Function: Save Inventory Direct to Cloud Firestore Database
 async function saveInventoryToCloud() {
-    // 1. Local Persistence Backup
+    // 1. Local Persistence Backup (Ensures zero data loss on immediate refresh)
     localStorage.setItem('localInventoryData', JSON.stringify(inventoryList));
     
     // 2. Direct Cloud Sync
@@ -409,7 +409,7 @@ function switchTab(tabName) {
     if (tabName === 'stocks') {
         document.getElementById('tabStocks')?.classList.add('active');
     } else if (tabName === 'profile') {
-        document.getElementById('tabProfile')?.classList.active;
+        document.getElementById('tabProfile')?.classList.add('active');
         toggleProfileEdit(false);
     } else {
         document.getElementById('tabSettings')?.classList.add('active');
@@ -595,7 +595,7 @@ function uploadToCloudProcess() {
                 }
             }
 
-            // Push Updates directly to Firebase Firestore Cloud
+            // Save state immediately
             await saveInventoryToCloud();
             renderInventory();
             updateStats();
