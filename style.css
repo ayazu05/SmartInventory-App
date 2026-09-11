@@ -1,376 +1,293 @@
-// Live Firebase Configuration Connected
-const firebaseConfig = {
-    apiKey: "AIzaSyARcXw5tfsu2fo2j7-5tqwdk1uhE3hPKvk",
-    authDomain: "smartinventory-app-38080.firebaseapp.com",
-    projectId: "smartinventory-app-38080",
-    storageBucket: "smartinventory-app-38080.firebasestorage.app",
-    messagingSenderId: "649192101754",
-    appId: "1:649192101754:web:1844e31928df3f016428c3",
-    measurementId: "G-RHFYPD8WKV"
-};
-
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-let confirmationResultObj = null;
-let inventoryList = [];
-let currentUserData = null;
-
-document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(forceHideSplash, 800);
-    setupRecaptcha();
-    checkUserAuthentication();
-    setupEventListeners();
-});
-
-function forceHideSplash() {
-    const splash = document.getElementById('appSplashLoader');
-    if (splash) splash.style.display = 'none';
+body.theme-dark {
+    background-color: #0f172a;
+    color: #f8fafc;
+    min-height: 100vh;
 }
 
-function setupRecaptcha() {
-    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response) => {}
-    });
+.hidden {
+    display: none !important;
 }
 
-// TOGGLE BETWEEN SEPARATE LOGIN & REGISTER WINDOWS
-function showRegisterWindow() {
-    document.getElementById('authLoginView').classList.add('hidden');
-    document.getElementById('authRegisterView').classList.remove('hidden');
+/* Splash Loader */
+.splash-screen {
+    position: fixed;
+    inset: 0;
+    background: #0f172a;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+.splash-content {
+    text-align: center;
+}
+.splash-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    margin: 15px auto 0;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Header */
+.app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: #1e293b;
+    border-bottom: 1px solid #334155;
+}
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.brand span {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+.icon-btn, .avatar-btn {
+    background: transparent;
+    border: none;
+    color: #f8fafc;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+.status-pill {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.status-pill .dot {
+    width: 6px;
+    height: 6px;
+    background: #4ade80;
+    border-radius: 50%;
 }
 
-function showLoginWindow() {
-    document.getElementById('authRegisterView').classList.add('hidden');
-    document.getElementById('authLoginView').classList.remove('hidden');
-    resetAuthView();
+/* Drawer Menu */
+.drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    z-index: 100;
+}
+.drawer-backdrop.open { display: block; }
+.menu-drawer {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 280px;
+    height: 100%;
+    background: #1e293b;
+    z-index: 101;
+    transition: left 0.3s ease;
+    padding: 20px;
+}
+.menu-drawer.open { left: 0; }
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.drawer-profile-preview {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #0f172a;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+.preview-avatar {
+    width: 36px;
+    height: 36px;
+    background: #334155;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.nav-item {
+    width: 100%;
+    text-align: left;
+    padding: 12px;
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+}
+.nav-item.active, .nav-item:hover {
+    background: #334155;
+    color: #fff;
+}
+.nav-divider {
+    height: 1px;
+    background: #334155;
+    margin: 12px 0;
+}
+.logout-btn { color: #f87171; }
+
+/* Main Content */
+.main-content {
+    padding: 16px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.welcome-banner {
+    background: linear-gradient(135deg, #1e293b, #0f172a);
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.banner-icon {
+    font-size: 1.8rem;
+    color: #3b82f6;
 }
 
-function resetAuthView() {
-    document.getElementById('authPhoneSubView').classList.remove('hidden');
-    document.getElementById('authOtpSubView').classList.add('hidden');
-    document.getElementById('regFormFields').classList.remove('hidden');
-    document.getElementById('regOtpFields').classList.add('hidden');
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.stat-card {
+    background: #1e293b;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid #334155;
+}
+.stat-label {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+.stat-info h3 {
+    font-size: 1.4rem;
+    margin-top: 4px;
 }
 
-// 1. Unified OTP Flow for Login and Registration
-async function sendOTP(mode) {
-    let rawPhone = '';
+.action-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.btn {
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-primary { background: #3b82f6; color: #fff; }
+.btn-secondary { background: #334155; color: #fff; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-stock-in { background: #16a34a; color: #fff; }
+.btn-stock-out { background: #dc2626; color: #fff; }
+.btn-full { width: 100%; }
 
-    if (mode === 'login') {
-        rawPhone = document.getElementById('authPhoneInput').value.trim();
-    } else {
-        const name = document.getElementById('regNameInput').value.trim();
-        const farm = document.getElementById('regFarmInput').value.trim();
-        rawPhone = document.getElementById('regPhoneInput').value.trim();
-
-        if (!name || !farm) {
-            alert("Please enter your Name and Farm/Business Name first.");
-            return;
-        }
-    }
-
-    if (!rawPhone || rawPhone.length < 10) {
-        alert("Please enter a valid 10-digit mobile number.");
-        return;
-    }
-
-    const formattedPhone = rawPhone.startsWith('+') ? rawPhone : '+91' + rawPhone.slice(-10);
-    const appVerifier = window.recaptchaVerifier;
-
-    try {
-        confirmationResultObj = await auth.signInWithPhoneNumber(formattedPhone, appVerifier);
-        showToast("OTP Sent to " + formattedPhone);
-
-        if (mode === 'login') {
-            document.getElementById('authPhoneSubView').classList.add('hidden');
-            document.getElementById('authOtpSubView').classList.remove('hidden');
-        } else {
-            document.getElementById('regFormFields').classList.add('hidden');
-            document.getElementById('regOtpFields').classList.remove('hidden');
-        }
-    } catch (error) {
-        console.error("OTP Send Error:", error);
-        alert("Failed to send OTP: " + error.message);
-        if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
-    }
+.search-bar-card input, .form-grid input, .input-group input, .modal-card input {
+    width: 100%;
+    padding: 10px 14px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    color: #fff;
+    outline: none;
+    margin-bottom: 10px;
 }
 
-async function verifyOTP(mode) {
-    const code = (mode === 'login') 
-        ? document.getElementById('authOtpInput').value.trim() 
-        : document.getElementById('regOtpInput').value.trim();
-
-    if (!code || code.length < 6) {
-        alert("Please enter the 6-digit OTP code.");
-        return;
-    }
-
-    try {
-        const result = await confirmationResultObj.confirm(code);
-        const phone = result.user.phoneNumber;
-
-        if (mode === 'login') {
-            await loginExistingUser(phone);
-        } else {
-            await registerNewUser(phone);
-        }
-    } catch (error) {
-        console.error("OTP Verification Error:", error);
-        alert("Invalid OTP Code. Please try again.");
-    }
+/* Stock List */
+.stock-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.stock-card {
+    background: #1e293b;
+    padding: 12px 16px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid #334155;
+}
+.qty-badge {
+    font-size: 0.8rem;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+.btn-delete {
+    background: transparent;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
 }
 
-async function loginExistingUser(phone) {
-    try {
-        let userDoc = await db.collection('users').doc(phone).get();
-        if (!userDoc.exists) {
-            const rawDigits = phone.replace('+91', '');
-            userDoc = await db.collection('users').doc(rawDigits).get();
-        }
-
-        if (userDoc.exists) {
-            finishAuth(phone, userDoc.data());
-        } else {
-            alert("Account not found! Please register first using the Sign Up window.");
-            showRegisterWindow();
-        }
-    } catch (e) {
-        alert("Login Error: " + e.message);
-    }
+/* Modals Overlay */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 500;
+}
+.modal-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    max-width: 400px;
+}
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
-async function registerNewUser(phone) {
-    const name = document.getElementById('regNameInput').value.trim();
-    const farm = document.getElementById('regFarmInput').value.trim();
-
-    const userData = {
-        phone: phone,
-        name: name,
-        farm: farm,
-        createdAt: new Date().toISOString()
-    };
-
-    try {
-        await db.collection('users').doc(phone).set(userData);
-        showToast("Registration Successful!");
-        finishAuth(phone, userData);
-    } catch (e) {
-        alert("Registration failed: " + e.message);
-    }
-}
-
-function finishAuth(phone, userData) {
-    currentUserData = userData;
-    localStorage.setItem('userPhone', phone);
-    localStorage.setItem('userData', JSON.stringify(userData));
-
-    updateUserUI(userData);
-    hideAuthModal();
-    loadCloudInventory(phone);
-}
-
-async function loadCloudInventory(phone) {
-    inventoryList = [];
-    try {
-        let doc = await db.collection('inventories').doc(phone).get();
-        if (!doc.exists) {
-            const rawDigits = phone.replace('+91', '');
-            doc = await db.collection('inventories').doc(rawDigits).get();
-        }
-
-        if (doc.exists && doc.data().items) {
-            inventoryList = doc.data().items || [];
-        }
-    } catch (e) {
-        console.error("Inventory Fetch Error:", e);
-    }
-
-    renderInventoryList();
-}
-
-function checkUserAuthentication() {
-    const savedPhone = localStorage.getItem('userPhone');
-    const savedUserData = localStorage.getItem('userData');
-
-    if (savedPhone && savedUserData) {
-        currentUserData = JSON.parse(savedUserData);
-        updateUserUI(currentUserData);
-        hideAuthModal();
-        loadCloudInventory(savedPhone);
-    } else {
-        showAuthModal();
-    }
-}
-
-function showAuthModal() {
-    document.getElementById('authOverlay').classList.remove('hidden');
-    showLoginWindow();
-}
-
-function hideAuthModal() {
-    document.getElementById('authOverlay').classList.add('hidden');
-}
-
-// LOGOUT WITH CUSTOM POPUP
-function logoutUser() {
-    closeMenu();
-    document.getElementById('modalLogoutConfirm').classList.remove('hidden');
-}
-
-function confirmLogoutProcess() {
-    requestCancel('modalLogoutConfirm');
-    auth.signOut();
-    localStorage.clear();
-    inventoryList = [];
-    currentUserData = null;
-    renderInventoryList();
-    showAuthModal();
-    showToast("Signed out successfully!");
-}
-
-// 2. Stock Operations (IN/OUT)
-async function uploadToCloudProcess(type = 'in') {
-    let nameInput = (type === 'out') ? document.getElementById('outProdName') : document.getElementById('prodName');
-    let qtyInput = (type === 'out') ? document.getElementById('outProdQty') : document.getElementById('prodQty');
-
-    const name = nameInput ? nameInput.value.trim() : '';
-    const qty = qtyInput ? parseInt(qtyInput.value, 10) : 0;
-    const phone = localStorage.getItem('userPhone');
-
-    if (!name || isNaN(qty) || qty <= 0 || !phone) {
-        alert("Please enter a valid item name and quantity.");
-        return;
-    }
-
-    requestCancel(type === 'out' ? 'modalStockOutDetails' : 'modalDetails');
-
-    const index = inventoryList.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
-
-    if (type === 'in') {
-        if (index > -1) {
-            inventoryList[index].qty += qty;
-        } else {
-            inventoryList.push({ name: name, qty: qty, id: 'item_' + Date.now() });
-        }
-        showToast("Stock IN Updated!");
-    } else if (type === 'out') {
-        if (index > -1) {
-            if (inventoryList[index].qty < qty) {
-                alert("Insufficient stock quantity!");
-                return;
-            }
-            inventoryList[index].qty -= qty;
-            if (inventoryList[index].qty <= 0) {
-                inventoryList.splice(index, 1);
-            }
-            showToast("Stock OUT Updated!");
-        } else {
-            alert("Item not found in stock!");
-            return;
-        }
-    }
-
-    try {
-        await db.collection('inventories').doc(phone).set({
-            items: inventoryList,
-            lastUpdated: new Date().toISOString()
-        }, { merge: true });
-    } catch (e) {
-        showToast("Error Saving Data");
-    }
-
-    if (nameInput) nameInput.value = '';
-    if (qtyInput) qtyInput.value = '';
-
-    renderInventoryList();
-}
-
-function deleteStockItem(index) {
-    const phone = localStorage.getItem('userPhone');
-    if (!phone) return;
-
-    if (confirm("Are you sure you want to delete this stock item?")) {
-        inventoryList.splice(index, 1);
-        db.collection('inventories').doc(phone).set({ items: inventoryList }, { merge: true });
-        renderInventoryList();
-        showToast("Item Deleted");
-    }
-}
-
-function renderInventoryList() {
-    const container = document.getElementById('stockListContainer');
-    if (!container) return;
-    container.innerHTML = '';
-    let totalQty = 0;
-
-    if (inventoryList.length === 0) {
-        container.innerHTML = `<p style="text-align:center; padding:20px; color:#888;">No inventory items found.</p>`;
-    } else {
-        inventoryList.forEach((item, index) => {
-            totalQty += Number(item.qty) || 0;
-            container.innerHTML += `
-                <div class="stock-card">
-                    <div class="stock-info">
-                        <h4>${item.name}</h4>
-                        <span class="qty-badge">Qty: ${item.qty}</span>
-                    </div>
-                    <button class="btn-delete" onclick="deleteStockItem(${index})"><i class="fas fa-trash"></i></button>
-                </div>`;
-        });
-    }
-
-    document.getElementById('statTotalItems').innerText = inventoryList.length;
-    document.getElementById('statTotalQty').innerText = totalQty;
-}
-
-function filterInventory() {
-    const query = document.getElementById('searchInput')?.value.toLowerCase() || '';
-    const cards = document.querySelectorAll('.stock-card');
-    cards.forEach(card => {
-        const name = card.querySelector('h4')?.innerText.toLowerCase() || '';
-        card.style.display = name.includes(query) ? 'flex' : 'none';
-    });
-}
-
-function updateUserUI(userData) {
-    if (!userData) return;
-    document.getElementById('menuUserName').innerText = userData.name || 'User';
-    document.getElementById('menuUserFarm').innerText = userData.farm || 'My Farm';
-    document.getElementById('profName').value = userData.name || '';
-    document.getElementById('profFarm').value = userData.farm || '';
-    document.getElementById('profPhone').value = userData.phone || '';
-}
-
-function showToast(msg) {
-    const toast = document.getElementById('successPopUp');
-    document.getElementById('popUpMessage').innerText = msg;
-    toast.classList.remove('hidden');
-    setTimeout(() => toast.classList.add('hidden'), 3000);
-}
-
-function requestCancel(id) { document.getElementById(id).classList.add('hidden'); }
-function switchTab(tab) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-}
-function handleStockIn() { document.getElementById('modalDetails').classList.remove('hidden'); }
-function handleStockOut() { document.getElementById('modalStockOutDetails').classList.remove('hidden'); }
-
-function closeMenu() {
-    document.getElementById('menuDrawer').classList.remove('open');
-    document.getElementById('drawerBackdrop').classList.remove('open');
-}
-
-function setupEventListeners() {
-    document.getElementById('btnOpenMenu').onclick = () => {
-        document.getElementById('menuDrawer').classList.add('open');
-        document.getElementById('drawerBackdrop').classList.add('open');
-    };
-    document.getElementById('btnCloseMenu').onclick = closeMenu;
+/* Toast */
+.toast-popup {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #22c55e;
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    z-index: 1000;
 }
