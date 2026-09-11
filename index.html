@@ -102,40 +102,69 @@
         </section>
     </main>
 
-    <!-- AUTH OVERLAY WITH OTP STEP -->
+    <!-- SEPARATE AUTHENTICATION OVERLAY -->
     <div id="authOverlay" class="modal-overlay hidden">
         <div class="modal-card">
-            <div class="auth-header">
-                <h2>Phone Authentication</h2>
-            </div>
-
-            <div id="authPhoneView" class="auth-view">
-                <div class="input-group">
-                    <label>Mobile Phone Number</label>
-                    <input type="tel" id="authPhoneInput" placeholder="10 Digit Number (e.g. 7011162050)">
+            
+            <!-- 1. LOGIN SCREEN (DEFAULT) -->
+            <div id="authLoginView" class="auth-view">
+                <div class="auth-header">
+                    <h2>Account Login</h2>
+                    <p style="font-size:0.85rem; color:#9ca3af; margin-bottom:12px;">Enter your phone number to sign in</p>
                 </div>
-                <div id="recaptcha-container"></div>
-                <button class="btn btn-primary btn-full mt-2" onclick="sendOTP()">Send OTP</button>
-            </div>
-
-            <div id="authOtpView" class="auth-view hidden">
-                <div class="input-group">
-                    <label>Enter 6-Digit Verification Code</label>
-                    <input type="number" id="authOtpInput" placeholder="------">
+                
+                <div id="authPhoneSubView">
+                    <div class="input-group">
+                        <label>Mobile Phone Number</label>
+                        <input type="tel" id="authPhoneInput" placeholder="10 Digit Number (e.g. 7011162050)">
+                    </div>
+                    <div id="recaptcha-container"></div>
+                    <button class="btn btn-primary btn-full mt-2" onclick="sendOTP('login')">Send OTP</button>
                 </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP()">Verify OTP</button>
-                <p class="auth-switch-text mt-2"><span onclick="resetAuthView()">Change Number</span></p>
+
+                <div id="authOtpSubView" class="hidden">
+                    <div class="input-group">
+                        <label>Enter 6-Digit OTP</label>
+                        <input type="number" id="authOtpInput" placeholder="------">
+                    </div>
+                    <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP('login')">Verify & Sign In</button>
+                    <p class="auth-switch-text mt-2"><span onclick="resetAuthView()">Change Number</span></p>
+                </div>
+
+                <div class="auth-footer mt-2" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+                    <p style="font-size:0.85rem; color:#9ca3af;">Don't have an account? <span onclick="showRegisterWindow()" style="color:#3b82f6; cursor:pointer; font-weight:bold;">Sign Up</span></p>
+                </div>
             </div>
 
+            <!-- 2. SEPARATE SIGN UP WINDOW -->
             <div id="authRegisterView" class="auth-view hidden">
-                <h3>New User Registration</h3>
-                <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 12px;">Create your account profile to continue.</p>
-                <div class="input-group">
-                    <input type="text" id="regNameInput" placeholder="Your Full Name">
-                    <input type="text" id="regFarmInput" placeholder="Farm / Business Name">
+                <div class="auth-header">
+                    <h2>Create New Account</h2>
+                    <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 12px;">Register your details to continue</p>
                 </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="completeRegistration()">Register & Continue</button>
+
+                <div id="regFormFields">
+                    <div class="input-group">
+                        <input type="text" id="regNameInput" placeholder="Your Full Name">
+                        <input type="text" id="regFarmInput" placeholder="Farm / Business Name">
+                        <input type="tel" id="regPhoneInput" placeholder="10 Digit Mobile Number">
+                    </div>
+                    <button class="btn btn-primary btn-full mt-2" onclick="sendOTP('register')">Send OTP for Registration</button>
+                </div>
+
+                <div id="regOtpFields" class="hidden">
+                    <div class="input-group">
+                        <label>Enter 6-Digit Verification Code</label>
+                        <input type="number" id="regOtpInput" placeholder="------">
+                    </div>
+                    <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP('register')">Complete Registration</button>
+                </div>
+
+                <div class="auth-footer mt-2" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
+                    <p style="font-size:0.85rem; color:#9ca3af;">Already have an account? <span onclick="showLoginWindow()" style="color:#3b82f6; cursor:pointer; font-weight:bold;">Sign In</span></p>
+                </div>
             </div>
+
         </div>
     </div>
 
@@ -161,6 +190,18 @@
             <div class="modal-actions mt-2">
                 <button class="btn btn-secondary" onclick="requestCancel('modalStockOutDetails')">Cancel</button>
                 <button class="btn btn-danger" onclick="uploadToCloudProcess('out')">Save Stock OUT</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CUSTOM LOGOUT CONFIRMATION MODAL -->
+    <div id="modalLogoutConfirm" class="modal-overlay hidden">
+        <div class="modal-card">
+            <h3>Confirm Sign Out</h3>
+            <p style="font-size: 0.9rem; color: #9ca3af; margin-bottom: 15px;">Are you sure you want to sign out from your account?</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="requestCancel('modalLogoutConfirm')">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmLogoutProcess()">Sign Out</button>
             </div>
         </div>
     </div>
