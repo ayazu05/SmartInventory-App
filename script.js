@@ -172,21 +172,53 @@ function logoutUser() {
     }
 }
 
-// 3. Add & Delete Stock Items
-async function uploadToCloudProcess() {
-    const name = document.getElementById('prodName').value.trim();
-    const qty = parseInt(document.getElementById('prodQty').value, 10);
+// 3. Stock IN & Stock OUT Handling
+async function uploadToCloudProcess(type = 'in') {
+    let nameInput, qtyInput;
+
+    if (type === 'out') {
+        nameInput = document.getElementById('outProdName');
+        qtyInput = document.getElementById('outProdQty');
+    } else {
+        nameInput = document.getElementById('prodName');
+        qtyInput = document.getElementById('prodQty');
+    }
+
+    const name = nameInput ? nameInput.value.trim() : '';
+    const qty = qtyInput ? parseInt(qtyInput.value, 10) : 0;
     const phone = localStorage.getItem('userPhone');
 
-    if (!name || isNaN(qty) || qty <= 0 || !phone) return;
+    if (!name || isNaN(qty) || qty <= 0 || !phone) {
+        alert("Please enter a valid item name and quantity.");
+        return;
+    }
 
-    requestCancel('modalDetails');
+    requestCancel(type === 'out' ? 'modalStockOutDetails' : 'modalDetails');
 
     const index = inventoryList.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
-    if (index > -1) {
-        inventoryList[index].qty += qty;
-    } else {
-        inventoryList.push({ name: name, qty: qty, id: 'item_' + Date.now() });
+
+    if (type === 'in') {
+        if (index > -1) {
+            inventoryList[index].qty += qty;
+        } else {
+            inventoryList.push({ name: name, qty: qty, id: 'item_' + Date.now() });
+        }
+        showToast("Stock IN Updated!");
+    } else if (type === 'out') {
+        if (index > -1) {
+            if (inventoryList[index].qty < qty) {
+                alert("Insufficient stock quantity!");
+                return;
+            }
+            inventoryList[index].qty -= qty;
+            if (inventoryList[index].qty <= 0) {
+                inventoryList.splice(index, 1);
+            }
+            showToast("Stock OUT Updated!");
+        } else {
+            alert("Item not found in stock!");
+            return;
+        }
     }
 
     try {
@@ -194,10 +226,12 @@ async function uploadToCloudProcess() {
             items: inventoryList,
             lastUpdated: new Date().toISOString()
         }, { merge: true });
-        showToast("Saved to Cloud!");
     } catch (e) {
         showToast("Error Saving Data");
     }
+
+    if (nameInput) nameInput.value = '';
+    if (qtyInput) qtyInput.value = '';
 
     renderInventoryList();
 }
@@ -218,7 +252,7 @@ function renderInventoryList() {
     let totalQty = 0;
 
     if (inventoryList.length === 0) {
-        container.innerHTML = `<p style="text-align:center; padding:20px;">No inventory items found.</p>`;
+        container.innerHTML = `<p style="text-align:center; padding:20px; color:#888;">No inventory items found.</p>`;
     } else {
         inventoryList.forEach((item, index) => {
             totalQty += Number(item.qty) || 0;
@@ -235,6 +269,15 @@ function renderInventoryList() {
 
     document.getElementById('statTotalItems').innerText = inventoryList.length;
     document.getElementById('statTotalQty').innerText = totalQty;
+}
+
+function filterInventory() {
+    const query = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    const cards = document.querySelectorAll('.stock-card');
+    cards.forEach(card => {
+        const name = card.querySelector('h4')?.innerText.toLowerCase() || '';
+        card.style.display = name.includes(query) ? 'flex' : 'none';
+    });
 }
 
 function updateUserUI(userData) {
@@ -259,10 +302,13 @@ function switchTab(tab) {
     document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
 }
 function handleStockIn() { document.getElementById('modalDetails').classList.remove('hidden'); }
+function handleStockOut() { document.getElementById('modalStockOutDetails').classList.remove('hidden'); }
+
 function closeMenu() {
     document.getElementById('menuDrawer').classList.remove('open');
     document.getElementById('drawerBackdrop').classList.remove('open');
 }
+
 function setupEventListeners() {
     document.getElementById('btnOpenMenu').onclick = () => {
         document.getElementById('menuDrawer').classList.add('open');
