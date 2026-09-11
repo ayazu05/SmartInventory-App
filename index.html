@@ -9,9 +9,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="style_4.css">
+    
+    <!-- FIXED: Correct CSS Link -->
+    <link rel="stylesheet" href="style.css">
 
-    <!-- Firebase SDKs (v9 Compat) -->
+    <!-- Firebase Compat SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -21,6 +23,7 @@
     <!-- Splash Screen -->
     <div id="appSplashLoader" class="splash-screen">
         <div class="splash-content">
+            <img src="Logo.png" alt="Logo" class="splash-logo-img" onerror="this.style.display='none'">
             <h2>Ai Stock Manager</h2>
             <div class="splash-spinner"></div>
         </div>
@@ -31,6 +34,7 @@
         <div class="header-left">
             <button id="btnOpenMenu" class="icon-btn" title="Open Menu"><i class="fas fa-bars-staggered"></i></button>
             <div class="brand">
+                <img src="Logo.png" alt="Logo" class="header-logo-img" onerror="this.style.display='none'">
                 <span>Ai Stock Manager</span>
             </div>
         </div>
@@ -168,11 +172,11 @@
         </section>
     </main>
 
-    <!-- Hidden Input Controls (Camera / Gallery Select) -->
+    <!-- Hidden Input Controls -->
     <input type="file" id="inputCamera" accept="image/*" capture="environment" class="hidden">
     <input type="file" id="inputFile" accept="image/*" class="hidden">
 
-    <!-- Authentication Overlay Modal -->
+    <!-- Auth Modal Overlay -->
     <div id="authOverlay" class="modal-overlay hidden">
         <div class="modal-card glassmorphism">
             <div class="auth-header">
@@ -295,6 +299,7 @@
         <span id="popUpMessage">Data Saved!</span>
     </div>
 
-    <script src="script_4.js" defer></script>
+    <!-- FIXED: Correct JS Script Link -->
+    <script src="script.js" defer></script>
 </body>
 </html>
