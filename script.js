@@ -20,7 +20,7 @@ let confirmationResultObj = null;
 let inventoryList = [];
 let currentUserData = null;
 let activeScanMode = 'in'; // 'in' or 'out'
-let capturedBase64Image = null;
+let capturedBase64Image = "";
 
 document.addEventListener("DOMContentLoaded", () => {
     setTimeout(forceHideSplash, 800);
@@ -43,7 +43,7 @@ function setupRecaptcha() {
     }
 }
 
-// SCREEN SWITCHING
+// SWITCH VIEWS
 function switchToSignUp() {
     document.getElementById('authLoginCard').style.display = 'none';
     document.getElementById('authSignUpCard').style.display = 'block';
@@ -62,7 +62,7 @@ function resetAuthView() {
     document.getElementById('regOtpFields').style.display = 'none';
 }
 
-// AUTH & OTP
+// AUTHENTICATION & OTP
 async function sendOTP(mode) {
     let rawPhone = (mode === 'login') 
         ? document.getElementById('authPhoneInput').value.trim()
@@ -190,7 +190,7 @@ function checkUserAuthentication() {
 function showAuthModal() { document.getElementById('authOverlay').classList.remove('hidden'); switchToLogin(); }
 function hideAuthModal() { document.getElementById('authOverlay').classList.add('hidden'); }
 
-// SCAN CAMERA & POPUP FUNCTIONS
+// SCAN CAMERA & MODAL POPUP
 function openScanPage(mode) {
     activeScanMode = mode;
     document.getElementById('scanPageTitle').innerText = (mode === 'in') ? "Stock IN - Select Photo" : "Stock OUT - Select Photo";
@@ -211,26 +211,30 @@ function retakePhoto() {
     document.getElementById('galleryFileInput').value = '';
 }
 
-function handleNativeCameraUpload(event) {
+// FIX FOR FIRESTORE NESTED ENTITY ISSUE (IMAGE RESIZING)
+function handleImageSelection(event) {
     const file = event.target.files[0];
     if (!file) return;
 
+    const img = new Image();
     const reader = new FileReader();
-    reader.onload = (e) => {
-        capturedBase64Image = e.target.result;
-        openCapturedPopupModal();
-    };
-    reader.readAsDataURL(file);
-}
 
-function handleGalleryUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
     reader.onload = (e) => {
-        capturedBase64Image = e.target.result;
-        openCapturedPopupModal();
+        img.src = e.target.result;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 500;
+            const scaleSize = MAX_WIDTH / img.width;
+            canvas.width = MAX_WIDTH;
+            canvas.height = img.height * scaleSize;
+
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            // Converting to clean light base64 string
+            capturedBase64Image = canvas.toDataURL('image/jpeg', 0.6);
+            openCapturedPopupModal();
+        };
     };
     reader.readAsDataURL(file);
 }
@@ -248,7 +252,7 @@ function openCapturedPopupModal() {
 }
 
 function resetCameraScan() {
-    capturedBase64Image = null;
+    capturedBase64Image = "";
     document.getElementById('scanItemName').value = '';
     document.getElementById('scanItemQty').value = '';
     document.getElementById('nativeCameraInput').value = '';
@@ -294,7 +298,7 @@ function processImageWithAI() {
     }, 1200);
 }
 
-// CONFIRM SUBMIT FUNCTION
+// CONFIRM SUBMIT
 async function confirmScanSubmit() {
     const nameInput = document.getElementById('scanItemName').value.trim();
     const qtyInput = document.getElementById('scanItemQty').value.trim();
@@ -327,9 +331,9 @@ async function confirmScanSubmit() {
             if (capturedBase64Image) inventoryList[index].image = capturedBase64Image;
         } else {
             inventoryList.push({
-                name: nameInput,
-                qty: qty,
-                image: capturedBase64Image || '',
+                name: String(nameInput),
+                qty: Number(qty),
+                image: String(capturedBase64Image || ''),
                 id: 'item_' + Date.now()
             });
         }
@@ -352,8 +356,11 @@ async function confirmScanSubmit() {
     }
 
     try {
+        // Clean JS Objects conversion before sending to Firestore
+        const cleanPayload = JSON.parse(JSON.stringify(inventoryList));
+
         await db.collection('inventories').doc(phone).set({
-            items: inventoryList,
+            items: cleanPayload,
             lastUpdated: new Date().toISOString()
         }, { merge: true });
 
@@ -406,7 +413,8 @@ function deleteStockItem(index) {
     const phone = localStorage.getItem('userPhone');
     if (confirm("Delete this stock item?")) {
         inventoryList.splice(index, 1);
-        db.collection('inventories').doc(phone).set({ items: inventoryList }, { merge: true });
+        const cleanPayload = JSON.parse(JSON.stringify(inventoryList));
+        db.collection('inventories').doc(phone).set({ items: cleanPayload }, { merge: true });
         renderInventoryList();
         showToast("Item Deleted");
     }
