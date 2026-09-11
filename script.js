@@ -6,42 +6,49 @@ let db = null;
 
 // Initialization
 document.addEventListener("DOMContentLoaded", () => {
+    // Safety Fallback: Loader 2 second se zyada nahi rukega
+    setTimeout(() => {
+        hideSplash();
+    }, 2000);
+
     initFirebase();
     loadLocalInventory();
     setupNetworkListeners();
     setupEventListeners();
 });
 
-// 1. Firebase Initialization & Reconnection Setup
+// 1. FIXED Firebase Initialization
 function initFirebase() {
     try {
-        if (typeof firebase !== 'undefined') {
-            // Firebase Config (Aapka original config auto-load hoga)
+        if (typeof firebase !== 'undefined' && firebase.apps.length > 0) {
             db = firebase.firestore();
             
-            // Re-enable persistence for offline support
+            // Offline Persistence Setup
             db.enablePersistence({ synchronizeTabs: true }).catch(err => {
-                console.warn("Persistence error:", err.code);
+                console.warn("Persistence note:", err.code);
             });
             
             fetchCloudInventory();
+        } else {
+            console.warn("Firebase config missing or not loaded. Running in local mode.");
+            hideSplash();
         }
     } catch (e) {
         console.error("Firebase Init Error:", e);
+        hideSplash(); // App stuck nahi hogi
     }
 }
 
-// 2. FIXED: Auto Refresh on Network Reconnect
+// 2. Network State Listeners
 function setupNetworkListeners() {
     window.addEventListener('online', () => {
-        showToast("Internet Connected! Syncing Data...");
+        showToast("Internet Reconnected!");
         updateNetworkStatusUI(true);
-        // Internet aate hi cloud sync aur data re-fetch karega
         fetchCloudInventory();
     });
 
     window.addEventListener('offline', () => {
-        showToast("Offline Mode Active. Data saved locally.");
+        showToast("Offline Mode");
         updateNetworkStatusUI(false);
     });
 }
@@ -59,7 +66,7 @@ function updateNetworkStatusUI(isOnline) {
     }
 }
 
-// 3. Local Storage Handling
+// 3. Local Inventory Management
 function loadLocalInventory() {
     const saved = localStorage.getItem('localInventoryData');
     if (saved) {
@@ -77,18 +84,19 @@ function saveLocalInventory() {
     renderInventoryList();
 }
 
-// 4. Fetch Data from Firestore (Append-safe)
+// 4. Fetch Cloud Data Safely
 async function fetchCloudInventory() {
     const phone = localStorage.getItem('userPhone') || currentUserData?.phone;
-    if (!db || !phone) return;
+    if (!db || !phone) {
+        hideSplash();
+        return;
+    }
 
     try {
         const doc = await db.collection('inventories').doc(phone).get();
         if (doc.exists && doc.data().items) {
-            // Merging local and cloud data to prevent loss
             const cloudItems = doc.data().items || [];
             
-            // Unique ID basis par items merge karna
             const itemMap = new Map();
             inventoryList.forEach(item => itemMap.set(item.id || item.name, item));
             cloudItems.forEach(item => itemMap.set(item.id || item.name, item));
@@ -97,13 +105,13 @@ async function fetchCloudInventory() {
             saveLocalInventory();
         }
     } catch (err) {
-        console.warn("Cloud Fetch Failed (Using Local Storage):", err);
+        console.warn("Cloud Fetch Failed:", err);
     } finally {
         hideSplash();
     }
 }
 
-// 5. FIXED: Multiple Item Stock Addition (Prevents Overwriting)
+// 5. Stock Addition (No Overwriting)
 async function uploadToCloudProcess() {
     const nameInput = document.getElementById('prodName');
     const qtyInput = document.getElementById('prodQty');
@@ -116,19 +124,15 @@ async function uploadToCloudProcess() {
         return;
     }
 
-    // Modal Hide
     requestCancel('modalDetails');
     showUploadProgress(true);
 
-    // FIXED: Item update or Push Logic
     const existingIndex = inventoryList.findIndex(item => item.name.toLowerCase() === name.toLowerCase());
 
     if (existingIndex > -1) {
-        // Agar item pehele se hai, toh uski Qty add/update karo (replace nahi)
         inventoryList[existingIndex].qty += qty;
         inventoryList[existingIndex].lastUpdated = new Date().toISOString();
     } else {
-        // Naya Item create karke Array me Push karo (Purana delete nahi hoga)
         const newItem = {
             id: 'item_' + Date.now(),
             name: name,
@@ -139,10 +143,8 @@ async function uploadToCloudProcess() {
         inventoryList.push(newItem);
     }
 
-    // Local Storage Update immediately
     saveLocalInventory();
 
-    // Cloud Database Save
     const phone = localStorage.getItem('userPhone') || currentUserData?.phone;
     if (db && phone) {
         try {
@@ -155,20 +157,19 @@ async function uploadToCloudProcess() {
             showToast("Item saved to Cloud!");
         } catch (error) {
             console.error("Cloud Save Failed:", error);
-            showToast("Saved Locally (Offline)");
+            showToast("Saved Locally");
         }
     } else {
         showToast("Saved Locally");
     }
 
-    // Reset Form
     if (nameInput) nameInput.value = '';
     if (qtyInput) qtyInput.value = '';
     currentPendingItem = null;
     
     setTimeout(() => {
         showUploadProgress(false);
-    }, 500);
+    }, 400);
 }
 
 // 6. UI Render Functions
@@ -211,7 +212,6 @@ function deleteStockItem(index) {
         inventoryList.splice(index, 1);
         saveLocalInventory();
         
-        // Sync Cloud
         const phone = localStorage.getItem('userPhone') || currentUserData?.phone;
         if (db && phone) {
             db.collection('inventories').doc(phone).set({
@@ -223,7 +223,14 @@ function deleteStockItem(index) {
     }
 }
 
-// Utility Functions
+// Utilities
+function hideSplash() {
+    const splash = document.getElementById('appSplashLoader');
+    if (splash && !splash.classList.contains('hidden')) {
+        splash.classList.add('hidden');
+    }
+}
+
 function showToast(msg) {
     const toast = document.getElementById('successPopUp');
     const msgEl = document.getElementById('popUpMessage');
@@ -249,11 +256,6 @@ function updateProgress(percent) {
     if (text) text.innerText = percent + '%';
 }
 
-function hideSplash() {
-    const splash = document.getElementById('appSplashLoader');
-    if (splash) splash.classList.add('hidden');
-}
-
 function requestCancel(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) modal.classList.add('hidden');
@@ -266,7 +268,6 @@ function escapeHtml(str) {
 }
 
 function setupEventListeners() {
-    // Menu Drawer handlers
     const btnOpen = document.getElementById('btnOpenMenu');
     const btnClose = document.getElementById('btnCloseMenu');
     const drawer = document.getElementById('menuDrawer');
