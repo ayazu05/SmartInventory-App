@@ -11,15 +11,20 @@ const firebaseConfig = {
 
 // Initialize Firebase safely
 if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+    try {
+        firebase.initializeApp(firebaseConfig);
+    } catch(e) {
+        console.error("Firebase Initialization Error:", e);
+    }
 }
 
-const auth = typeof firebase !== 'undefined' ? firebase.auth() : null;
-const db = typeof firebase !== 'undefined' ? firebase.firestore() : null;
+const auth = typeof firebase !== 'undefined' && firebase.auth ? firebase.auth() : null;
+const db = typeof firebase !== 'undefined' && firebase.firestore ? firebase.firestore() : null;
 
 if (db) {
-    db.enablePersistence().catch(err => {
-        console.warn("Persistence note:", err.code);
+    // Enable Offline Persistence for Smooth Realtime Cloud Sync
+    db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+        console.warn("Firestore Persistence Warning:", err.code);
     });
 }
 
@@ -31,7 +36,6 @@ let pendingProfileUpdate = null;
 
 let currentUserData = null;
 let inventoryList = [];
-let filteredList = [];
 
 let currentActionType = 'Stock IN';
 let capturedImageBase64 = '';
@@ -39,16 +43,17 @@ let selectedIndexForOut = -1;
 let activeModalToCancel = '';
 let pendingDeleteIndex = -1;
 
-// Phone Normalizer
+// Helper: Normalize Phone Number to International Format (+91...)
 function formatPhone(phone) {
-    let cleaned = (phone || '').toString().replace(/\D/g, '');
+    if (!phone) return '';
+    let cleaned = phone.toString().replace(/\D/g, '');
     if (cleaned.length === 10) {
         cleaned = '91' + cleaned;
     }
     return '+' + cleaned;
 }
 
-// Initialization
+// Initialization & Cloud Sync Setup
 document.addEventListener('DOMContentLoaded', async () => {
     hideSplashScreen();
     setupEvents();
@@ -62,7 +67,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderProfileToUI(currentUserData);
             updateHeaderProfileUI(currentUserData);
         } catch (e) {
-            console.error(e);
+            console.error("Profile Parsing Error:", e);
         }
     }
 
@@ -71,6 +76,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         await fetchUserDataAndSync(savedPhone);
     } else {
         document.getElementById('authOverlay')?.classList.remove('hidden');
+    }
+    
+    // Load Offline Backup while Cloud Listener loads
+    const offlineBackup = localStorage.getItem('localInventoryData');
+    if (offlineBackup) {
+        try {
+            inventoryList = JSON.parse(offlineBackup);
+            renderInventory();
+            updateStats();
+        } catch(e) {}
     }
 });
 
@@ -96,7 +111,7 @@ function setupEvents() {
     document.getElementById('btnConfirmYes')?.addEventListener('click', handleConfirmAction);
 }
 
-// Auth Views
+// Authentication Views Logic
 function switchAuthView(mode) {
     currentAuthMode = mode;
     document.getElementById('authRegisterView')?.classList.add('hidden');
@@ -199,13 +214,6 @@ async function verifyAuthOtp() {
             pendingRegistrationData = null;
         }
 
-        if (pendingProfileUpdate && db) {
-            await db.collection('users').doc(phone).set(pendingProfileUpdate, { merge: true });
-            localStorage.setItem('localProfileData', JSON.stringify(pendingProfileUpdate));
-            currentUserData = pendingProfileUpdate;
-            pendingProfileUpdate = null;
-        }
-
         localStorage.setItem('userPhone', phone);
         await fetchUserDataAndSync(phone);
 
@@ -220,35 +228,58 @@ function cancelAuthFlow() {
     switchAuthView(currentAuthMode);
 }
 
-// Profile & Realtime Sync
+// REALTIME CLOUD DATABASE LISTENERS
 async function fetchUserDataAndSync(phone) {
     if (!phone) return;
     const formattedPhone = formatPhone(phone);
 
     try {
         if (db) {
+            // Profile Fetching
             const doc = await db.collection('users').doc(formattedPhone).get();
             if (doc.exists) {
                 currentUserData = doc.data();
                 localStorage.setItem('localProfileData', JSON.stringify(currentUserData));
                 renderProfileToUI(currentUserData);
                 updateHeaderProfileUI(currentUserData);
-            } else if (currentUserData) {
-                await db.collection('users').doc(formattedPhone).set(currentUserData, { merge: true });
             }
 
+            // Continuous Realtime Sync from Cloud Firestore
             db.collection('inventories').doc(formattedPhone).onSnapshot((snap) => {
                 if (snap.exists && snap.data().items) {
                     inventoryList = snap.data().items;
-                } else {
-                    inventoryList = JSON.parse(localStorage.getItem('localInventoryData') || '[]');
+                    localStorage.setItem('localInventoryData', JSON.stringify(inventoryList));
+                    renderInventory();
+                    updateStats();
                 }
-                renderInventory();
-                updateStats();
+            }, (error) => {
+                console.error("Firestore Listener Error:", error);
             });
         }
     } catch (error) {
-        console.error("Profile load err:", error);
+        console.error("Profile Load Error:", error);
+    }
+}
+
+// Core Function: Save Inventory Direct to Cloud Firestore Database
+async function saveInventoryToCloud() {
+    // 1. Local Persistence Backup
+    localStorage.setItem('localInventoryData', JSON.stringify(inventoryList));
+    
+    // 2. Direct Cloud Sync
+    const phone = currentUserData?.phone || localStorage.getItem('userPhone');
+    if (db && phone) {
+        const formattedPhone = formatPhone(phone);
+        try {
+            await db.collection('inventories').doc(formattedPhone).set({
+                items: inventoryList,
+                lastUpdated: new Date().toISOString()
+            }, { merge: true });
+            console.log("Successfully Saved to Cloud Database!");
+        } catch (err) {
+            console.error("Cloud Save Failed:", err);
+            showSuccessPopUp("Sync Failed! Saved Locally.");
+        }
     }
 }
 
@@ -315,15 +346,6 @@ function logoutUser() {
     location.reload();
 }
 
-async function saveInventoryToCloud() {
-    localStorage.setItem('localInventoryData', JSON.stringify(inventoryList));
-    const phone = currentUserData?.phone || localStorage.getItem('userPhone');
-    if (db && phone) {
-        const formattedPhone = formatPhone(phone);
-        await db.collection('inventories').doc(formattedPhone).set({ items: inventoryList }, { merge: true });
-    }
-}
-
 // Dialog Controls
 function requestCancel(modalId) {
     activeModalToCancel = modalId;
@@ -354,7 +376,7 @@ function closeConfirmModal() {
     document.getElementById('customConfirmModal')?.classList.add('hidden');
 }
 
-function handleConfirmAction() {
+async function handleConfirmAction() {
     closeConfirmModal();
 
     if (activeModalToCancel) {
@@ -363,10 +385,10 @@ function handleConfirmAction() {
     } else if (pendingDeleteIndex > -1) {
         inventoryList.splice(pendingDeleteIndex, 1);
         pendingDeleteIndex = -1;
-        saveInventoryToCloud();
+        await saveInventoryToCloud();
         renderInventory();
         updateStats();
-        showSuccessPopUp("Item Deleted!");
+        showSuccessPopUp("Item Deleted & Cloud Updated!");
     }
 }
 
@@ -387,7 +409,7 @@ function switchTab(tabName) {
     if (tabName === 'stocks') {
         document.getElementById('tabStocks')?.classList.add('active');
     } else if (tabName === 'profile') {
-        document.getElementById('tabProfile')?.classList.add('active');
+        document.getElementById('tabProfile')?.classList.active;
         toggleProfileEdit(false);
     } else {
         document.getElementById('tabSettings')?.classList.add('active');
@@ -415,7 +437,7 @@ function changeTheme(themeVal) {
     }
 }
 
-// Stock Actions
+// Stock Operations
 function handleStockIn() {
     currentActionType = 'Stock IN';
     selectedIndexForOut = -1;
@@ -518,7 +540,7 @@ function proceedToDetails() {
         nameInput.value = '';
         nameInput.disabled = false;
         document.getElementById('qtyLimitHint').classList.add('hidden');
-        document.getElementById('btnSubmitCloud').innerHTML = `<i class="fas fa-cloud-arrow-up"></i> Save to Cloud`;
+        document.getElementById('btnSubmitCloud').innerHTML = `<i class="fas fa-cloud-arrow-up"></i> Save Item`;
     }
 
     document.getElementById('modalDetails')?.classList.remove('hidden');
@@ -545,13 +567,13 @@ function uploadToCloudProcess() {
     const uploadModal = document.getElementById('modalUploadProgress');
     const progressBar = document.getElementById('uploadProgressBar');
     const percentTxt = document.getElementById('uploadPercentText');
-    document.getElementById('uploadModalTitle').innerText = currentActionType === 'Stock IN' ? "Syncing with Cloud..." : "Deducting Stock...";
+    document.getElementById('uploadModalTitle').innerText = currentActionType === 'Stock IN' ? "Syncing to Cloud..." : "Updating Cloud...";
 
     uploadModal.classList.remove('hidden');
     let percent = 0;
 
-    const interval = setInterval(() => {
-        percent += 10;
+    const interval = setInterval(async () => {
+        percent += 20;
         progressBar.style.width = percent + '%';
         percentTxt.innerText = percent + '%';
 
@@ -573,15 +595,16 @@ function uploadToCloudProcess() {
                 }
             }
 
-            saveInventoryToCloud();
+            // Push Updates directly to Firebase Firestore Cloud
+            await saveInventoryToCloud();
             renderInventory();
             updateStats();
             document.getElementById('prodName').value = '';
             document.getElementById('prodQty').value = '';
 
-            showSuccessPopUp(currentActionType === 'Stock IN' ? "Stock Added to Cloud!" : "Stock Deducted Successfully!");
+            showSuccessPopUp(currentActionType === 'Stock IN' ? "Saved to Cloud!" : "Deducted & Synced!");
         }
-    }, 120);
+    }, 80);
 }
 
 function filterInventory() {
@@ -602,7 +625,7 @@ function renderInventory(listToRender = inventoryList) {
         container.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-box-open"></i>
-                <p>No inventory records found.</p>
+                <p>No stock items found in cloud database.</p>
             </div>
         `;
         return;
