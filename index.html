@@ -19,7 +19,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
-<body class="theme-dark">
+<body class="theme-dark" id="appBody">
 
     <!-- SPLASH SCREEN WITH LOGO -->
     <div id="appSplashLoader" class="splash-screen">
@@ -61,6 +61,8 @@
             <button class="nav-item active" onclick="switchTab('stocks'); closeMenu();"><i class="fas fa-boxes-stacked"></i> Dashboard & Stocks</button>
             <button class="nav-item" onclick="openScanPage('in'); closeMenu();"><i class="fas fa-plus"></i> Quick Stock IN</button>
             <button class="nav-item" onclick="openScanPage('out'); closeMenu();"><i class="fas fa-minus"></i> Quick Stock OUT</button>
+            <button class="nav-item" onclick="switchTab('settings'); closeMenu();"><i class="fas fa-sliders"></i> Settings</button>
+            <button class="nav-item" onclick="openWhatsAppSupport(); closeMenu();"><i class="fab fa-whatsapp" style="color: #25D366;"></i> WhatsApp Support</button>
             <div class="nav-divider"></div>
             <button class="nav-item" onclick="switchTab('profile'); closeMenu();"><i class="fas fa-id-card"></i> Profile</button>
             <button class="nav-item logout-btn" onclick="logoutUser()"><i class="fas fa-power-off"></i> Sign Out</button>
@@ -68,6 +70,7 @@
     </aside>
 
     <main class="main-content">
+        <!-- DASHBOARD TAB -->
         <section id="tabStocks" class="tab-content active">
             <div class="welcome-banner mb-3">
                 <i class="fas fa-robot banner-icon"></i>
@@ -93,6 +96,31 @@
             </div>
             
             <div id="stockListContainer" class="stock-list"></div>
+        </section>
+
+        <!-- SETTINGS TAB -->
+        <section id="tabSettings" class="tab-content">
+            <div class="profile-card">
+                <h2 style="margin-bottom: 15px;"><i class="fas fa-sliders"></i> Settings</h2>
+                <div class="setting-row" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <div>
+                        <strong>App Theme Mode</strong>
+                        <p style="font-size: 0.8rem; color: #94a3b8;">Choose Light or Dark appearance</p>
+                    </div>
+                    <select id="themeSelect" onchange="changeAppTheme(this.value)" style="padding: 8px 12px; border-radius: 6px; background: var(--bg-input); color: var(--text-color); border: 1px solid var(--border-color);">
+                        <option value="dark">Dark Theme</option>
+                        <option value="light">Light Theme</option>
+                    </select>
+                </div>
+
+                <div class="setting-row" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0;">
+                    <div>
+                        <strong>Customer Support</strong>
+                        <p style="font-size: 0.8rem; color: #94a3b8;">Connect with us on WhatsApp</p>
+                    </div>
+                    <button class="btn btn-secondary" onclick="openWhatsAppSupport()"><i class="fab fa-whatsapp" style="color:#25D366;"></i> Chat Support</button>
+                </div>
+            </div>
         </section>
 
         <!-- PROFILE SECTION -->
@@ -180,6 +208,9 @@
             <div id="scanFormCard" class="scan-form-card">
                 <h4 id="detectedItemTitle">Item Details</h4>
                 <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
+                    <!-- Dropdown for manual stock selection during Stock OUT -->
+                    <select id="scanItemSelect" style="display:none;" onchange="onManualDropdownSelect(this.value)"></select>
+
                     <input type="text" id="scanItemName" placeholder="Item Name">
                     <input type="number" id="scanItemQty" placeholder="Quantity">
                 </div>
