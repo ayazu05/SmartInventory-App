@@ -1,0 +1,21 @@
+{
+  "short_name": "StockManager",
+  "name": "AI Cloud Stock Manager",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3144/3144456.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3144/3144456.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "./index.html",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "display": "standalone",
+  "orientation": "portrait"
+}
