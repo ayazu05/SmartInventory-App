@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
-    <!-- FIXED: Correct CSS Link -->
+    <!-- Main Stylesheet -->
     <link rel="stylesheet" href="style.css">
 
     <!-- Firebase Compat SDKs -->
@@ -244,17 +244,6 @@
         </div>
     </div>
 
-    <div id="modalPreview" class="modal-overlay hidden">
-        <div class="modal-card">
-            <h3>Item Preview</h3>
-            <div class="image-preview-wrapper"><img id="imgPreview" src="" alt="Preview"></div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="requestCancel('modalPreview')">Cancel</button>
-                <button class="btn btn-primary" onclick="proceedToDetails()">Continue</button>
-            </div>
-        </div>
-    </div>
-
     <div id="modalDetails" class="modal-overlay hidden">
         <div class="modal-card">
             <h3 id="detailsModalTitle">Stock Entry Details</h3>
@@ -265,7 +254,6 @@
             <div class="input-group">
                 <label>Quantity</label>
                 <input type="number" id="prodQty">
-                <small id="qtyLimitHint" class="hint-text hidden"></small>
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="requestCancel('modalDetails')">Cancel</button>
@@ -274,32 +262,13 @@
         </div>
     </div>
 
-    <div id="modalUploadProgress" class="modal-overlay hidden">
-        <div class="modal-card align-center">
-            <h3 id="uploadModalTitle">Syncing Database...</h3>
-            <div class="progress-bar-bg"><div id="uploadProgressBar" class="progress-bar-fill"></div></div>
-            <span id="uploadPercentText" class="percent-txt">0%</span>
-        </div>
-    </div>
-
-    <div id="customConfirmModal" class="modal-overlay hidden">
-        <div class="modal-card align-center">
-            <i id="confirmIcon" class="fas fa-circle-question confirm-dialog-icon"></i>
-            <h3 id="confirmModalTitle">Confirm Action</h3>
-            <p id="confirmModalText">Are you sure?</p>
-            <div class="modal-actions">
-                <button id="btnConfirmNo" class="btn btn-secondary">No</button>
-                <button id="btnConfirmYes" class="btn btn-primary">Yes</button>
-            </div>
-        </div>
-    </div>
-
+    <!-- Toast Notifications -->
     <div id="successPopUp" class="toast-popup hidden">
         <i class="fas fa-circle-check"></i>
         <span id="popUpMessage">Data Saved!</span>
     </div>
 
-    <!-- FIXED: Correct JS Script Link -->
+    <!-- Main JS Application -->
     <script src="script.js" defer></script>
 </body>
 </html>
