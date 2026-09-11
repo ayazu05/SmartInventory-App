@@ -102,7 +102,7 @@
         </section>
     </main>
 
-    <!-- DEDICATED FULL SCREEN CAMERA & SCAN PAGE -->
+    <!-- FULL SCREEN CAMERA & SCAN PAGE -->
     <div id="scanPage" class="scan-page-overlay hidden">
         <div class="scan-header">
             <button class="icon-btn" onclick="closeScanPage()"><i class="fas fa-arrow-left"></i></button>
@@ -111,10 +111,11 @@
         </div>
 
         <div class="camera-viewport">
-            <video id="cameraVideo" autoplay playsinline></video>
-            <canvas id="cameraCanvas" style="display:none;"></canvas>
-            <div class="scan-frame"></div>
             <img id="previewCapturedImg" class="captured-preview hidden" alt="Captured Preview">
+            <div id="placeholderView" style="text-align:center; padding:20px; color:#94a3b8;">
+                <i class="fas fa-camera" style="font-size:3rem; margin-bottom:12px; color:#3b82f6;"></i>
+                <p>Click "Native Camera" below to use Zoom & Auto-Focus</p>
+            </div>
         </div>
 
         <!-- AI LOADING OVERLAY -->
@@ -135,14 +136,21 @@
             </div>
         </div>
 
-        <!-- BOTTOM ACTION BUTTONS -->
+        <!-- NATIVE CAMERA & GALLERY CONTROLS -->
         <div id="scanControls" class="scan-controls">
-            <button class="btn-capture" onclick="capturePhoto()"><i class="fas fa-camera"></i> Capture</button>
-            <div class="scan-sub-actions">
-                <label for="galleryFileInput" class="btn btn-secondary"><i class="fas fa-image"></i> Upload from Gallery</label>
+            <div class="scan-sub-actions" style="display: flex; gap: 12px; width: 100%;">
+                <label for="nativeCameraInput" class="btn btn-primary" style="flex: 1; padding: 14px; font-size: 0.95rem;">
+                    <i class="fas fa-camera"></i> Native Camera
+                </label>
+                <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleNativeCameraUpload(event)">
+
+                <label for="galleryFileInput" class="btn btn-secondary" style="flex: 1; padding: 14px; font-size: 0.95rem;">
+                    <i class="fas fa-image"></i> Gallery
+                </label>
                 <input type="file" id="galleryFileInput" accept="image/*" style="display:none;" onchange="handleGalleryUpload(event)">
-                <button class="btn btn-danger" onclick="closeScanPage()">Cancel</button>
             </div>
+            
+            <button class="btn btn-danger btn-full" onclick="closeScanPage()" style="margin-top: 8px;">Cancel</button>
         </div>
     </div>
 
