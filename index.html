@@ -4,317 +4,658 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ai Stock Manager</title>
-    
-    <!-- Fonts & Icons -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <!-- CSS Link -->
-    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+        body {
+            background-color: #0b1326;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 450px;
+            background-color: #0d1527;
+            min-height: 100vh;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        /* Top Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 10px;
+            padding-bottom: 5px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .menu-btn {
+            font-size: 20px;
+            color: #ffffff;
+            cursor: pointer;
+        }
+
+        .app-title-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .app-icon {
+            width: 24px;
+            height: 24px;
+            background: #1e3a8a;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #60a5fa;
+            font-size: 14px;
+        }
+
+        .app-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #38bdf8;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-badge {
+            background-color: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #10b981;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            background-color: #10b981;
+            border-radius: 50%;
+        }
+
+        .profile-btn {
+            font-size: 18px;
+            color: #94a3b8;
+            cursor: pointer;
+        }
+
+        /* Banner Box */
+        .banner-card {
+            background: linear-gradient(135deg, #152238 0%, #1a2942 100%);
+            border-radius: 14px;
+            padding: 18px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .banner-icon {
+            width: 48px;
+            height: 48px;
+            background-color: #1e293b;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #38bdf8;
+            flex-shrink: 0;
+        }
+
+        .banner-text {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.3;
+            color: #f1f5f9;
+        }
+
+        /* Stats Section */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-card {
+            background-color: #152238;
+            border-radius: 12px;
+            padding: 14px 16px;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        /* Stock Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .btn-stock-in {
+            background-color: #059669;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
+        }
+
+        .btn-stock-out {
+            background-color: #d97706;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(217, 119, 6, 0.2);
+        }
+
+        /* Search Input */
+        .search-container {
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            background-color: #152238;
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #ffffff;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .search-input::placeholder {
+            color: #64748b;
+        }
+
+        /* Item List */
+        .item-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .item-card {
+            background-color: #152238;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .item-img {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            object-fit: cover;
+            background-color: #1e293b;
+        }
+
+        .item-details {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .item-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .item-qty {
+            font-size: 12px;
+            color: #38bdf8;
+            font-weight: 500;
+        }
+
+        .item-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .action-icon-btn {
+            background-color: rgba(255, 255, 255, 0.05);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .edit-qty-btn {
+            color: #38bdf8;
+        }
+
+        .edit-qty-btn:hover {
+            background-color: rgba(56, 189, 248, 0.2);
+        }
+
+        .delete-btn {
+            color: #ef4444;
+        }
+
+        .delete-btn:hover {
+            background-color: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Modal Overlay */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 16px;
+        }
+
+        .modal-card {
+            background: #152238;
+            width: 100%;
+            max-width: 380px;
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            animation: popIn 0.2s ease-out;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            padding-bottom: 10px;
+        }
+
+        .modal-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .qty-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin: 10px 0;
+        }
+
+        .qty-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .btn-minus {
+            background-color: #ef4444;
+        }
+
+        .btn-plus {
+            background-color: #10b981;
+        }
+
+        .qty-display-input {
+            width: 70px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            background: #0d1527;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #ffffff;
+            border-radius: 8px;
+            padding: 6px;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .btn-confirm {
+            flex: 1;
+            background-color: #38bdf8;
+            color: #0d1527;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            background-color: #334155;
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #10b981;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: none;
+            z-index: 2000;
+        }
+    </style>
 </head>
-<body class="theme-dark" id="appBody">
+<body>
 
-    <!-- SPLASH SCREEN -->
-    <div id="appSplashLoader" class="splash-screen">
-        <div class="splash-content">
-            <img src="Logo.png" alt="Ai Stock Manager" class="splash-logo">
-            <div class="splash-spinner"></div>
+    <div class="app-container">
+        <!-- Top Navigation -->
+        <div class="header">
+            <div class="header-left">
+                <i class="fa-solid fa-bars menu-btn"></i>
+                <div class="app-title-container">
+                    <div class="app-icon"><i class="fa-solid fa-boxes-stacked"></i></div>
+                    <span class="app-title">Ai Stock Manager</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="status-badge">
+                    <span class="status-dot"></span> Live Cloud
+                </div>
+                <i class="fa-solid fa-user-gear profile-btn"></i>
+            </div>
+        </div>
+
+        <!-- Banner -->
+        <div class="banner-card">
+            <div class="banner-icon">
+                <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="banner-text">
+                Your Ai Stock Manager IS Ready
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Total Items</div>
+                <div class="stat-value" id="total-items">4</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Total Stock Qty</div>
+                <div class="stat-value" id="total-qty">10</div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn-stock-in"><i class="fa-solid fa-plus"></i> Stock IN</button>
+            <button class="btn-stock-out"><i class="fa-solid fa-minus"></i> Stock OUT</button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-container">
+            <input type="text" class="search-input" placeholder="Search item..." id="search-input" onkeyup="filterItems()">
+        </div>
+
+        <!-- Items List -->
+        <div class="item-list" id="item-list">
+            <!-- Items rendered by JS -->
         </div>
     </div>
 
-    <!-- HEADER -->
-    <header class="app-header">
-        <div class="header-left">
-            <button id="btnOpenMenu" class="icon-btn"><i class="fas fa-bars-staggered"></i></button>
-            <div class="brand">
-                <img src="Logo.png" alt="Logo" class="header-logo">
-                <span>Ai Stock Manager</span>
-            </div>
-        </div>
-        <div class="header-right">
-            <div class="status-pill green"><span class="dot"></span> Live Cloud</div>
-            <button class="avatar-btn" onclick="switchTab('profile')"><i class="fas fa-user-gear"></i></button>
-        </div>
-    </header>
-
-    <!-- DRAWER MENU -->
-    <div id="drawerBackdrop" class="drawer-backdrop"></div>
-    <aside id="menuDrawer" class="menu-drawer pos-left">
-        <div class="drawer-header">
-            <div class="drawer-brand"><i class="fas fa-layer-group"></i> Navigation</div>
-            <button id="btnCloseMenu" class="icon-btn"><i class="fas fa-xmark"></i></button>
-        </div>
-        <div class="drawer-profile-preview">
-            <div class="preview-avatar"><i class="fas fa-user"></i></div>
-            <div class="preview-info">
-                <h4 id="menuUserName">User Name</h4>
-                <p id="menuUserFarm">Farm Name</p>
-            </div>
-        </div>
-        <nav class="drawer-nav">
-            <button class="nav-item active" onclick="switchTab('stocks'); closeMenu();"><i class="fas fa-boxes-stacked"></i> Dashboard & Stocks</button>
-            <button class="nav-item" onclick="openScanPage('in'); closeMenu();"><i class="fas fa-plus"></i> Quick Stock IN</button>
-            <button class="nav-item" onclick="openScanPage('out'); closeMenu();"><i class="fas fa-minus"></i> Quick Stock OUT</button>
-            <button class="nav-item" onclick="switchTab('settings'); closeMenu();"><i class="fas fa-sliders"></i> Settings</button>
-            <button class="nav-item" onclick="openWhatsAppSupport()"><i class="fab fa-whatsapp" style="color: #25D366;"></i> WhatsApp Support</button>
-            <div class="nav-divider"></div>
-            <button class="nav-item" onclick="switchTab('profile'); closeMenu();"><i class="fas fa-id-card"></i> Profile</button>
-            <button class="nav-item logout-btn" onclick="logoutUser()"><i class="fas fa-power-off"></i> Sign Out</button>
-        </nav>
-    </aside>
-
-    <main class="main-content">
-        <!-- DASHBOARD TAB -->
-        <section id="tabStocks" class="tab-content active">
-            <div class="welcome-banner mb-3">
-                <i class="fas fa-robot banner-icon"></i>
-                <h2>Your Ai Stock Manager IS Ready</h2>
-            </div>
-
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-info"><span class="stat-label">Total Items</span><h3 id="statTotalItems">0</h3></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-info"><span class="stat-label">Total Stock Qty</span><h3 id="statTotalQty">0</h3></div>
-                </div>
-            </div>
-
-            <div class="action-bar">
-                <button class="btn btn-stock-in" onclick="openScanPage('in')"><i class="fas fa-plus"></i> Stock IN</button>
-                <button class="btn btn-stock-out" onclick="openScanPage('out')"><i class="fas fa-minus"></i> Stock OUT</button>
-            </div>
-
-            <div class="search-bar-card">
-                <input type="text" id="searchInput" placeholder="Search item..." oninput="filterInventory()">
-            </div>
-            
-            <div id="stockListContainer" class="stock-list"></div>
-        </section>
-
-        <!-- SETTINGS TAB -->
-        <section id="tabSettings" class="tab-content">
-            <div class="profile-card">
-                <h2 style="margin-bottom: 15px;"><i class="fas fa-sliders"></i> Settings</h2>
-                <div class="setting-row">
-                    <div>
-                        <strong>App Theme Mode</strong>
-                        <p style="font-size: 0.8rem; color: var(--subtext-color);">Choose Light or Dark appearance</p>
-                    </div>
-                    <select id="themeSelect" onchange="changeAppTheme(this.value)" class="theme-select-box">
-                        <option value="dark">Dark Theme</option>
-                        <option value="light">Light Theme</option>
-                    </select>
-                </div>
-
-                <div class="setting-row">
-                    <div>
-                        <strong>Customer Support</strong>
-                        <p style="font-size: 0.8rem; color: var(--subtext-color);">Connect with us on WhatsApp</p>
-                    </div>
-                    <button class="btn btn-secondary" onclick="openWhatsAppSupport()"><i class="fab fa-whatsapp" style="color:#25D366;"></i> Chat Support</button>
-                </div>
-            </div>
-        </section>
-
-        <!-- PROFILE SECTION -->
-        <section id="tabProfile" class="tab-content">
-            <div class="profile-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h2 style="margin:0;">User Profile</h2>
-                    <button id="btnEditProfile" class="btn btn-secondary" onclick="toggleProfileEdit(true)" style="padding: 6px 14px; font-size: 0.85rem;">
-                        <i class="fas fa-pen"></i> Edit
-                    </button>
-                </div>
-
-                <div class="form-grid" style="display: flex; flex-direction: column; gap: 12px;">
-                    <div class="input-group">
-                        <label style="font-size:0.8rem; color: var(--subtext-color);">Your Name</label>
-                        <input type="text" id="profName" disabled placeholder="Name">
-                    </div>
-                    <div class="input-group">
-                        <label style="font-size:0.8rem; color: var(--subtext-color);">Farm / Company Name</label>
-                        <input type="text" id="profFarm" disabled placeholder="Farm Name">
-                    </div>
-                    <div class="input-group">
-                        <label style="font-size:0.8rem; color: var(--subtext-color);">Phone Number (Read Only)</label>
-                        <input type="text" id="profPhone" disabled placeholder="Phone" style="opacity: 0.6;">
-                    </div>
-                </div>
-
-                <div id="profileEditActions" class="modal-actions hidden" style="margin-top: 18px; gap: 10px;">
-                    <button class="btn btn-secondary" style="flex:1;" onclick="toggleProfileEdit(false)">Cancel</button>
-                    <button class="btn btn-primary" style="flex:1;" onclick="saveProfileChanges()">Save Changes</button>
-                </div>
-            </div>
-        </section>
-    </main>
-
-    <!-- FIXED BOTTOM FOOTER CREDIT -->
-    <footer class="app-footer">
-        <p>Developed By Ayaz</p>
-    </footer>
-
-    <!-- SCAN OVERLAY -->
-    <div id="scanPage" class="scan-page-overlay hidden">
-        <div class="scan-header">
-            <button class="icon-btn" onclick="closeScanPage()"><i class="fas fa-arrow-left"></i></button>
-            <h3 id="scanPageTitle">Select Photo Source</h3>
-            <div style="width: 24px;"></div>
-        </div>
-
-        <div class="camera-viewport">
-            <div id="placeholderView" style="text-align:center; padding:20px; color: var(--subtext-color);">
-                <i class="fas fa-camera" style="font-size:3.5rem; margin-bottom:12px; color:#3b82f6;"></i>
-                <p>Click "Native Camera" or "Gallery" below to select stock image</p>
-            </div>
-        </div>
-
-        <div id="scanControls" class="scan-controls">
-            <div class="scan-sub-actions" style="display: flex; gap: 12px; width: 100%;">
-                <label for="nativeCameraInput" class="btn btn-primary" style="flex: 1; padding: 14px; font-size: 0.95rem; text-align: center;">
-                    <i class="fas fa-camera"></i> Native Camera
-                </label>
-                <input type="file" id="nativeCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="handleImageSelection(event)">
-
-                <label for="galleryFileInput" class="btn btn-secondary" style="flex: 1; padding: 14px; font-size: 0.95rem; text-align: center;">
-                    <i class="fas fa-image"></i> Gallery
-                </label>
-                <input type="file" id="galleryFileInput" accept="image/*" style="display:none;" onchange="handleImageSelection(event)">
-            </div>
-            
-            <button class="btn btn-danger btn-full" onclick="closeScanPage()" style="margin-top: 10px;">Cancel & Go to Dashboard</button>
-        </div>
-    </div>
-
-    <!-- CONFIRMATION MODAL WITH MANUAL SELECTION DROPDOWN FOR BOTH IN & OUT -->
-    <div id="photoResultModal" class="modal-overlay hidden">
-        <div class="modal-card scan-modal-card">
-            <div class="modal-header-custom">
-                <h3 id="modalPageTitle">Confirm Stock Details</h3>
-                <button class="icon-btn" onclick="closeScanPage()"><i class="fas fa-xmark"></i></button>
-            </div>
-
-            <div class="popup-image-container">
-                <img id="previewCapturedImg" class="popup-captured-preview" alt="Captured Preview">
-            </div>
-
-            <div id="aiScanningLoader" class="ai-loader-container hidden">
-                <div class="ai-spinner"></div>
-                <p id="aiScanStatus">AI Processing Image...</p>
-            </div>
-
-            <div id="scanFormCard" class="scan-form-card">
-                <h4 id="detectedItemTitle">Item Details</h4>
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 8px;">
-                    <div class="dropdown-wrapper">
-                        <label style="font-size:0.75rem; color: var(--subtext-color); font-weight:600;">Or Select Existing Inventory Item Manually:</label>
-                        <select id="scanItemSelect" onchange="onManualDropdownSelect(this.value)"></select>
-                    </div>
-
-                    <div class="input-group">
-                        <label style="font-size:0.75rem; color: var(--subtext-color); font-weight:600;">Item Name:</label>
-                        <input type="text" id="scanItemName" placeholder="Enter or Selected Item Name">
-                    </div>
-
-                    <div class="input-group">
-                        <label style="font-size:0.75rem; color: var(--subtext-color); font-weight:600;">Quantity:</label>
-                        <input type="number" id="scanItemQty" placeholder="Quantity">
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-actions-stacked mt-2">
-                <button class="btn btn-primary btn-full" id="btnSaveScanResult" onclick="confirmScanSubmit()">Confirm & Save</button>
-                <button class="btn btn-secondary btn-full" onclick="retakePhoto()">Retake Photo</button>
-                <button class="btn btn-danger btn-full" onclick="closeScanPage()">Cancel (Go to Dashboard)</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- AUTHENTICATION OVERLAY -->
-    <div id="authOverlay" class="modal-overlay hidden">
-        <div id="authLoginCard" class="modal-card">
-            <div class="auth-header">
-                <h2>Account Login</h2>
-                <p style="font-size:0.85rem; color: var(--subtext-color); margin-bottom:12px;">Sign in with your phone number</p>
-            </div>
-            
-            <div id="authPhoneSubView">
-                <div class="input-group">
-                    <label>Mobile Phone Number</label>
-                    <input type="tel" id="authPhoneInput" placeholder="10 Digit Number (e.g. 7011162050)">
-                </div>
-                <div id="recaptcha-container"></div>
-                <button class="btn btn-primary btn-full mt-2" onclick="sendOTP('login')">Send OTP</button>
-            </div>
-
-            <div id="authOtpSubView" style="display: none;">
-                <div class="input-group">
-                    <label>Enter 6-Digit OTP</label>
-                    <input type="number" id="authOtpInput" placeholder="------">
-                </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP('login')">Verify & Sign In</button>
-                <p class="auth-switch-text mt-2"><span onclick="resetAuthView()" style="color:#3b82f6; cursor:pointer;">Change Number</span></p>
-            </div>
-
-            <div class="auth-footer mt-2" style="text-align: center; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 15px;">
-                <p style="font-size:0.85rem; color: var(--subtext-color);">Don't have an account? <span onclick="switchToSignUp()" style="color:#3b82f6; cursor:pointer; font-weight:bold;">Sign Up</span></p>
-            </div>
-        </div>
-
-        <div id="authSignUpCard" class="modal-card" style="display: none;">
-            <div class="auth-header">
-                <h2>New User Registration</h2>
-                <p style="font-size: 0.85rem; color: var(--subtext-color); margin-bottom: 12px;">Create your account profile to continue</p>
-            </div>
-
-            <div id="regFormFields">
-                <div class="input-group" style="display: flex; flex-direction: column; gap: 10px;">
-                    <input type="text" id="regNameInput" placeholder="Your Full Name">
-                    <input type="text" id="regFarmInput" placeholder="Farm / Business Name">
-                    <input type="tel" id="regPhoneInput" placeholder="10 Digit Mobile Number">
-                </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="sendOTP('register')">Send OTP for Registration</button>
-            </div>
-
-            <div id="regOtpFields" style="display: none;">
-                <div class="input-group">
-                    <label>Enter 6-Digit Verification Code</label>
-                    <input type="number" id="regOtpInput" placeholder="------">
-                </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP('register')">Complete Registration</button>
-            </div>
-
-            <div class="auth-footer mt-2" style="text-align: center; border-top: 1px solid var(--border-color); padding-top: 12px; margin-top: 15px;">
-                <p style="font-size:0.85rem; color: var(--subtext-color);">Already have an account? <span onclick="switchToLogin()" style="color:#3b82f6; cursor:pointer; font-weight:bold;">Sign In</span></p>
-            </div>
-        </div>
-    </div>
-
-    <!-- LOGOUT MODAL -->
-    <div id="modalLogoutConfirm" class="modal-overlay hidden">
+    <!-- Edit Quantity Modal -->
+    <div class="modal-overlay" id="qty-modal">
         <div class="modal-card">
-            <h3>Confirm Sign Out</h3>
-            <p style="font-size: 0.9rem; color: var(--subtext-color); margin-bottom: 15px;">Are you sure you want to sign out?</p>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="requestCancel('modalLogoutConfirm')">Cancel</button>
-                <button class="btn btn-danger" onclick="confirmLogoutProcess()">Sign Out</button>
+            <div class="modal-header">
+                <span class="modal-title" id="modal-item-name">Modify Item Quantity</span>
+                <button class="close-btn" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 13px; color: #94a3b8; text-align: center;">Select or adjust new stock quantity:</p>
+                <div class="qty-controls">
+                    <button class="qty-btn btn-minus" onclick="adjustModalQty(-1)"><i class="fa-solid fa-minus"></i></button>
+                    <input type="number" class="qty-display-input" id="modal-qty-val" value="1" min="0">
+                    <button class="qty-btn btn-plus" onclick="adjustModalQty(1)"><i class="fa-solid fa-plus"></i></button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="btn-confirm" onclick="saveQuantity()">Update Quantity</button>
             </div>
         </div>
     </div>
 
-    <div id="successPopUp" class="toast-popup hidden">
-        <span id="popUpMessage">Done</span>
-    </div>
+    <div class="toast" id="toast-msg">Quantity updated successfully!</div>
 
-    <script src="script.js" defer></script>
+    <script>
+        // Sample Initial Data matching screenshot
+        let items = [
+            { id: 1, name: 'Led', qty: 2, image: 'https://images.unsplash.com/photo-1550985616-10810253b84d?w=100&auto=format&fit=crop&q=60' },
+            { id: 2, name: 'Fan', qty: 3, image: 'https://images.unsplash.com/photo-1618959279187-181d0e3feb03?w=100&auto=format&fit=crop&q=60' },
+            { id: 3, name: 'Ac', qty: 3, image: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=100&auto=format&fit=crop&q=60' },
+            { id: 4, name: 'Certains', qty: 2, image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=100&auto=format&fit=crop&q=60' }
+        ];
+
+        let activeEditId = null;
+
+        function renderItems(filterText = '') {
+            const listContainer = document.getElementById('item-list');
+            listContainer.innerHTML = '';
+
+            let filteredItems = items.filter(item => item.name.toLowerCase().includes(filterText.toLowerCase()));
+
+            filteredItems.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'item-card';
+                card.innerHTML = `
+                    <div class="item-left">
+                        <img src="${item.image}" class="item-img" alt="${item.name}">
+                        <div class="item-details">
+                            <span class="item-name">${item.name}</span>
+                            <span class="item-qty">Qty: ${item.qty}</span>
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        <button class="action-icon-btn edit-qty-btn" onclick="openModal(${item.id})" title="Modify Quantity">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button class="action-icon-btn delete-btn" onclick="deleteItem(${item.id})" title="Delete Item">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+
+            updateTotals();
+        }
+
+        function updateTotals() {
+            document.getElementById('total-items').innerText = items.length;
+            const totalQty = items.reduce((acc, curr) => acc + curr.qty, 0);
+            document.getElementById('total-qty').innerText = totalQty;
+        }
+
+        function filterItems() {
+            const val = document.getElementById('search-input').value;
+            renderItems(val);
+        }
+
+        function deleteItem(id) {
+            if(confirm("Are you sure you want to delete this item?")) {
+                items = items.filter(i => i.id !== id);
+                renderItems(document.getElementById('search-input').value);
+                showToast("Item deleted!");
+            }
+        }
+
+        function openModal(id) {
+            activeEditId = id;
+            const item = items.find(i => i.id === id);
+            if(item) {
+                document.getElementById('modal-item-name').innerText = `Modify Quantity: ${item.name}`;
+                document.getElementById('modal-qty-val').value = item.qty;
+                document.getElementById('qty-modal').style.display = 'flex';
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('qty-modal').style.display = 'none';
+            activeEditId = null;
+        }
+
+        function adjustModalQty(change) {
+            const input = document.getElementById('modal-qty-val');
+            let currentVal = parseInt(input.value) || 0;
+            currentVal += change;
+            if(currentVal < 0) currentVal = 0;
+            input.value = currentVal;
+        }
+
+        function saveQuantity() {
+            if(activeEditId !== null) {
+                const newVal = parseInt(document.getElementById('modal-qty-val').value) || 0;
+                const item = items.find(i => i.id === activeEditId);
+                if(item) {
+                    item.qty = newVal;
+                    renderItems(document.getElementById('search-input').value);
+                    showToast(`Updated ${item.name} quantity to ${newVal}!`);
+                }
+            }
+            closeModal();
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast-msg');
+            toast.innerText = msg;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 2000);
+        }
+
+        // Initial Render
+        renderItems();
+    </script>
 </body>
 </html>
