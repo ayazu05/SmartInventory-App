@@ -18,6 +18,60 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* Additional Quantity Edit Modal Styles */
+        .qty-controls-inline {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .btn-qty-action {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            border: none;
+            font-size: 1.2rem;
+            color: #ffffff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.1s ease;
+        }
+
+        .btn-qty-action:active {
+            transform: scale(0.92);
+        }
+
+        .btn-qty-minus {
+            background-color: #ef4444;
+        }
+
+        .btn-qty-plus {
+            background-color: #10b981;
+        }
+
+        .qty-input-box {
+            width: 80px;
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: 700;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color, rgba(255, 255, 255, 0.2));
+            background: rgba(0, 0, 0, 0.2);
+            color: inherit;
+        }
+
+        .action-icon-btn.edit-btn {
+            color: #3b82f6;
+            margin-right: 6px;
+        }
+    </style>
 </head>
 <body class="theme-dark" id="appBody">
 
@@ -239,6 +293,30 @@
         </div>
     </div>
 
+    <!-- ITEM QUANTITY MODIFICATION MODAL -->
+    <div id="modifyQtyModal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header-custom">
+                <h3 id="modifyQtyTitle">Modify Stock Quantity</h3>
+                <button class="icon-btn" onclick="closeModifyQtyModal()"><i class="fas fa-xmark"></i></button>
+            </div>
+            <p style="font-size:0.85rem; color: var(--subtext-color); text-align: center; margin-top: 5px;">
+                Add or subtract quantity for <strong id="modifyItemNameDisplay" style="color:var(--text-color, #fff);">Item</strong>
+            </p>
+
+            <div class="qty-controls-inline">
+                <button class="btn-qty-action btn-qty-minus" onclick="stepModifyQty(-1)"><i class="fas fa-minus"></i></button>
+                <input type="number" id="modifyQtyVal" class="qty-input-box" value="1" min="0">
+                <button class="btn-qty-action btn-qty-plus" onclick="stepModifyQty(1)"><i class="fas fa-plus"></i></button>
+            </div>
+
+            <div class="modal-actions mt-2" style="gap:10px;">
+                <button class="btn btn-secondary" style="flex:1;" onclick="closeModifyQtyModal()">Cancel</button>
+                <button class="btn btn-primary" style="flex:1;" onclick="saveModifiedQuantity()">Update Quantity</button>
+            </div>
+        </div>
+    </div>
+
     <!-- AUTHENTICATION OVERLAY -->
     <div id="authOverlay" class="modal-overlay hidden">
         <div id="authLoginCard" class="modal-card">
@@ -315,6 +393,15 @@
         <span id="popUpMessage">Done</span>
     </div>
 
-    <script src="script.js" defer></script>
-</body>
-</html>
+    <!-- Quantity Modification Helper Scripts -->
+    <script>
+        let selectedItemForEdit = null;
+
+        function openModifyQtyModal(itemId, itemName, currentQty) {
+            selectedItemForEdit = itemId;
+            const nameEl = document.getElementById('modifyItemNameDisplay');
+            const qtyInput = document.getElementById('modifyQtyVal');
+            
+            if(nameEl) nameEl.innerText = itemName;
+            if(qtyInput) qtyInput.value = currentQty;
+       
