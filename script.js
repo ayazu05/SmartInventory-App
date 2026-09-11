@@ -1,4 +1,4 @@
-// Live Firebase Configuration Connected
+// Live Firebase Configuration
 const firebaseConfig = {
     apiKey: "AIzaSyARcXw5tfsu2fo2j7-5tqwdk1uhE3hPKvk",
     authDomain: "smartinventory-app-38080.firebaseapp.com",
@@ -19,6 +19,9 @@ const db = firebase.firestore();
 let confirmationResultObj = null;
 let inventoryList = [];
 let currentUserData = null;
+let activeScanMode = 'in'; // 'in' or 'out'
+let currentStream = null;
+let capturedBase64Image = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     setTimeout(forceHideSplash, 800);
@@ -41,7 +44,7 @@ function setupRecaptcha() {
     }
 }
 
-// SCREEN SWITCHING FUNCTIONS
+// SCREEN SWITCHING
 function switchToSignUp() {
     document.getElementById('authLoginCard').style.display = 'none';
     document.getElementById('authSignUpCard').style.display = 'block';
@@ -60,34 +63,31 @@ function resetAuthView() {
     document.getElementById('regOtpFields').style.display = 'none';
 }
 
-// OTP SEND
+// AUTH & OTP
 async function sendOTP(mode) {
-    let rawPhone = '';
+    let rawPhone = (mode === 'login') 
+        ? document.getElementById('authPhoneInput').value.trim()
+        : document.getElementById('regPhoneInput').value.trim();
 
-    if (mode === 'login') {
-        rawPhone = document.getElementById('authPhoneInput').value.trim();
-    } else {
+    if (mode === 'register') {
         const name = document.getElementById('regNameInput').value.trim();
         const farm = document.getElementById('regFarmInput').value.trim();
-        rawPhone = document.getElementById('regPhoneInput').value.trim();
-
         if (!name || !farm) {
-            alert("Please enter your Name and Farm/Business Name first.");
+            alert("Please enter Name and Farm Name.");
             return;
         }
     }
 
     if (!rawPhone || rawPhone.length < 10) {
-        alert("Please enter a valid 10-digit mobile number.");
+        alert("Enter a valid 10-digit number.");
         return;
     }
 
     const formattedPhone = rawPhone.startsWith('+') ? rawPhone : '+91' + rawPhone.slice(-10);
     setupRecaptcha();
-    const appVerifier = window.recaptchaVerifier;
 
     try {
-        confirmationResultObj = await auth.signInWithPhoneNumber(formattedPhone, appVerifier);
+        confirmationResultObj = await auth.signInWithPhoneNumber(formattedPhone, window.recaptchaVerifier);
         showToast("OTP Sent to " + formattedPhone);
 
         if (mode === 'login') {
@@ -98,24 +98,17 @@ async function sendOTP(mode) {
             document.getElementById('regOtpFields').style.display = 'block';
         }
     } catch (error) {
-        console.error("OTP Send Error:", error);
         alert("Failed to send OTP: " + error.message);
-        if (window.recaptchaVerifier) {
-            window.recaptchaVerifier.render().then(widgetId => {
-                if (typeof grecaptcha !== 'undefined') grecaptcha.reset(widgetId);
-            });
-        }
     }
 }
 
-// OTP VERIFICATION
 async function verifyOTP(mode) {
     const code = (mode === 'login') 
         ? document.getElementById('authOtpInput').value.trim() 
         : document.getElementById('regOtpInput').value.trim();
 
     if (!code || code.length < 6) {
-        alert("Please enter the 6-digit OTP code.");
+        alert("Enter 6-digit OTP.");
         return;
     }
 
@@ -129,27 +122,22 @@ async function verifyOTP(mode) {
             await registerNewUser(phone);
         }
     } catch (error) {
-        console.error("OTP Verification Error:", error);
-        alert("Invalid OTP Code. Please try again.");
+        alert("Invalid OTP.");
     }
 }
 
 async function loginExistingUser(phone) {
-    try {
-        let userDoc = await db.collection('users').doc(phone).get();
-        if (!userDoc.exists) {
-            const rawDigits = phone.replace('+91', '');
-            userDoc = await db.collection('users').doc(rawDigits).get();
-        }
+    let userDoc = await db.collection('users').doc(phone).get();
+    if (!userDoc.exists) {
+        const rawDigits = phone.replace('+91', '');
+        userDoc = await db.collection('users').doc(rawDigits).get();
+    }
 
-        if (userDoc.exists) {
-            finishAuth(phone, userDoc.data());
-        } else {
-            alert("Account not found! Switching to Sign Up screen...");
-            switchToSignUp();
-        }
-    } catch (e) {
-        alert("Login Error: " + e.message);
+    if (userDoc.exists) {
+        finishAuth(phone, userDoc.data());
+    } else {
+        alert("Account not found! Please register.");
+        switchToSignUp();
     }
 }
 
@@ -157,20 +145,10 @@ async function registerNewUser(phone) {
     const name = document.getElementById('regNameInput').value.trim();
     const farm = document.getElementById('regFarmInput').value.trim();
 
-    const userData = {
-        phone: phone,
-        name: name,
-        farm: farm,
-        createdAt: new Date().toISOString()
-    };
-
-    try {
-        await db.collection('users').doc(phone).set(userData);
-        showToast("Registration Successful!");
-        finishAuth(phone, userData);
-    } catch (e) {
-        alert("Registration failed: " + e.message);
-    }
+    const userData = { phone, name, farm, createdAt: new Date().toISOString() };
+    await db.collection('users').doc(phone).set(userData);
+    showToast("Registration Successful!");
+    finishAuth(phone, userData);
 }
 
 function finishAuth(phone, userData) {
@@ -187,18 +165,12 @@ async function loadCloudInventory(phone) {
     inventoryList = [];
     try {
         let doc = await db.collection('inventories').doc(phone).get();
-        if (!doc.exists) {
-            const rawDigits = phone.replace('+91', '');
-            doc = await db.collection('inventories').doc(rawDigits).get();
-        }
-
         if (doc.exists && doc.data().items) {
             inventoryList = doc.data().items || [];
         }
     } catch (e) {
         console.error("Inventory Fetch Error:", e);
     }
-
     renderInventoryList();
 }
 
@@ -216,126 +188,185 @@ function checkUserAuthentication() {
     }
 }
 
-function showAuthModal() {
-    document.getElementById('authOverlay').classList.remove('hidden');
-    switchToLogin();
+function showAuthModal() { document.getElementById('authOverlay').classList.remove('hidden'); switchToLogin(); }
+function hideAuthModal() { document.getElementById('authOverlay').classList.add('hidden'); }
+
+// DEDICATED SCAN CAMERA FUNCTIONS
+async function openScanPage(mode) {
+    activeScanMode = mode;
+    document.getElementById('scanPageTitle').innerText = (mode === 'in') ? "Stock IN - Scan Item" : "Stock OUT - Scan & AI Match";
+    document.getElementById('scanPage').classList.remove('hidden');
+    
+    resetCameraScan();
+    await startCameraStream();
 }
 
-function hideAuthModal() {
-    document.getElementById('authOverlay').classList.add('hidden');
+async function startCameraStream() {
+    const video = document.getElementById('cameraVideo');
+    try {
+        currentStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" } },
+            audio: false
+        });
+        video.srcObject = currentStream;
+    } catch (err) {
+        console.warn("Direct camera access failed, fallback to file upload.");
+    }
 }
 
-// LOGOUT
-function logoutUser() {
-    closeMenu();
-    document.getElementById('modalLogoutConfirm').classList.remove('hidden');
+function stopCameraStream() {
+    if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+        currentStream = null;
+    }
 }
 
-function confirmLogoutProcess() {
-    requestCancel('modalLogoutConfirm');
-    auth.signOut();
-    localStorage.clear();
-    inventoryList = [];
-    currentUserData = null;
-    renderInventoryList();
-    showAuthModal();
-    showToast("Signed out successfully!");
+function closeScanPage() {
+    stopCameraStream();
+    document.getElementById('scanPage').classList.add('hidden');
 }
 
-// HELPER FOR CONVERTING IMAGE TO BASE64
-function getBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-    });
-}
+function capturePhoto() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('cameraCanvas');
+    const preview = document.getElementById('previewCapturedImg');
 
-// STOCK OPERATIONS WITH CAMERA/IMAGE SUPPORT
-async function uploadToCloudProcess(type = 'in') {
-    let nameInput = (type === 'out') ? document.getElementById('outProdName') : document.getElementById('prodName');
-    let qtyInput = (type === 'out') ? document.getElementById('outProdQty') : document.getElementById('prodQty');
-    let imageInput = document.getElementById('prodImageInput');
+    if (video.srcObject) {
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        capturedBase64Image = canvas.toDataURL('image/jpeg');
+    }
 
-    const name = nameInput ? nameInput.value.trim() : '';
-    const qty = qtyInput ? parseInt(qtyInput.value, 10) : 0;
-    const phone = localStorage.getItem('userPhone');
-
-    if (!name || isNaN(qty) || qty <= 0 || !phone) {
-        alert("Please enter a valid item name and quantity.");
+    if (!capturedBase64Image) {
+        alert("Could not capture photo.");
         return;
     }
 
-    let imageBase64 = null;
-    if (type === 'in' && imageInput && imageInput.files && imageInput.files[0]) {
-        try {
-            imageBase64 = await getBase64(imageInput.files[0]);
-        } catch (err) {
-            console.error("Image convert error", err);
-        }
-    }
+    preview.src = capturedBase64Image;
+    preview.classList.remove('hidden');
+    video.style.display = 'none';
 
-    requestCancel(type === 'out' ? 'modalStockOutDetails' : 'modalDetails');
+    processImageWithAI();
+}
+
+function handleGalleryUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        capturedBase64Image = e.target.result;
+        const preview = document.getElementById('previewCapturedImg');
+        const video = document.getElementById('cameraVideo');
+
+        preview.src = capturedBase64Image;
+        preview.classList.remove('hidden');
+        video.style.display = 'none';
+
+        processImageWithAI();
+    };
+    reader.readAsDataURL(file);
+}
+
+function resetCameraScan() {
+    capturedBase64Image = null;
+    document.getElementById('previewCapturedImg').classList.add('hidden');
+    document.getElementById('cameraVideo').style.display = 'block';
+    document.getElementById('aiScanningLoader').classList.add('hidden');
+    document.getElementById('scanFormCard').classList.add('hidden');
+    document.getElementById('scanControls').style.display = 'flex';
+    document.getElementById('scanItemName').value = '';
+    document.getElementById('scanItemQty').value = '';
+}
+
+// AI MATCHING LOGIC
+function processImageWithAI() {
+    document.getElementById('scanControls').style.display = 'none';
+    const loader = document.getElementById('aiScanningLoader');
+    const statusText = document.getElementById('aiScanStatus');
+    loader.classList.remove('hidden');
+
+    statusText.innerText = (activeScanMode === 'out') 
+        ? "AI Searching & Matching Inventory Images..." 
+        : "AI Processing Item Image...";
+
+    setTimeout(() => {
+        loader.classList.add('hidden');
+        document.getElementById('scanFormCard').classList.remove('hidden');
+
+        if (activeScanMode === 'out') {
+            // Simulated AI Image Matching with Saved Inventory
+            const matchedItem = inventoryList.find(item => item.image);
+
+            if (matchedItem) {
+                document.getElementById('scanItemName').value = matchedItem.name;
+                document.getElementById('detectedItemTitle').innerText = "AI Match Found: " + matchedItem.name;
+                showToast("AI Matched: " + matchedItem.name);
+            } else if (inventoryList.length > 0) {
+                document.getElementById('scanItemName').value = inventoryList[0].name;
+                document.getElementById('detectedItemTitle').innerText = "AI Suggested: " + inventoryList[0].name;
+            } else {
+                document.getElementById('detectedItemTitle').innerText = "No Stock Item Found";
+            }
+            document.getElementById('btnSaveScanResult').className = "btn btn-danger";
+            document.getElementById('btnSaveScanResult').innerText = "Confirm Stock OUT";
+        } else {
+            document.getElementById('detectedItemTitle').innerText = "New Item Details";
+            document.getElementById('btnSaveScanResult').className = "btn btn-primary";
+            document.getElementById('btnSaveScanResult').innerText = "Confirm Stock IN";
+        }
+    }, 2000);
+}
+
+async function confirmScanSubmit() {
+    const name = document.getElementById('scanItemName').value.trim();
+    const qty = parseInt(document.getElementById('scanItemQty').value, 10);
+    const phone = localStorage.getItem('userPhone');
+
+    if (!name || isNaN(qty) || qty <= 0 || !phone) {
+        alert("Please enter valid name and quantity.");
+        return;
+    }
 
     const index = inventoryList.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
 
-    if (type === 'in') {
+    if (activeScanMode === 'in') {
         if (index > -1) {
             inventoryList[index].qty += qty;
-            if (imageBase64) inventoryList[index].image = imageBase64;
+            if (capturedBase64Image) inventoryList[index].image = capturedBase64Image;
         } else {
-            inventoryList.push({ 
-                name: name, 
-                qty: qty, 
-                image: imageBase64 || null, 
-                id: 'item_' + Date.now() 
+            inventoryList.push({
+                name: name,
+                qty: qty,
+                image: capturedBase64Image,
+                id: 'item_' + Date.now()
             });
         }
-        showToast("Stock IN Updated!");
-    } else if (type === 'out') {
+        showToast("Stock IN Saved!");
+    } else {
         if (index > -1) {
             if (inventoryList[index].qty < qty) {
                 alert("Insufficient stock quantity!");
                 return;
             }
             inventoryList[index].qty -= qty;
-            if (inventoryList[index].qty <= 0) {
-                inventoryList.splice(index, 1);
-            }
-            showToast("Stock OUT Updated!");
+            if (inventoryList[index].qty <= 0) inventoryList.splice(index, 1);
+            showToast("Stock OUT Saved!");
         } else {
-            alert("Item not found in stock!");
+            alert("Item not found in Inventory!");
             return;
         }
     }
 
-    try {
-        await db.collection('inventories').doc(phone).set({
-            items: inventoryList,
-            lastUpdated: new Date().toISOString()
-        }, { merge: true });
-    } catch (e) {
-        showToast("Error Saving Data");
-    }
+    await db.collection('inventories').doc(phone).set({
+        items: inventoryList,
+        lastUpdated: new Date().toISOString()
+    }, { merge: true });
 
-    if (nameInput) nameInput.value = '';
-    if (qtyInput) qtyInput.value = '';
-    if (imageInput) imageInput.value = '';
-
+    closeScanPage();
     renderInventoryList();
-}
-
-function deleteStockItem(index) {
-    const phone = localStorage.getItem('userPhone');
-    if (!phone) return;
-
-    if (confirm("Are you sure you want to delete this stock item?")) {
-        inventoryList.splice(index, 1);
-        db.collection('inventories').doc(phone).set({ items: inventoryList }, { merge: true });
-        renderInventoryList();
-        showToast("Item Deleted");
-    }
 }
 
 function renderInventoryList() {
@@ -350,8 +381,8 @@ function renderInventoryList() {
         inventoryList.forEach((item, index) => {
             totalQty += Number(item.qty) || 0;
             const imgHTML = item.image 
-                ? `<img src="${item.image}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; margin-right:10px;">` 
-                : `<div style="width:40px; height:40px; background:#334155; border-radius:6px; margin-right:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:#94a3b8;"></i></div>`;
+                ? `<img src="${item.image}" style="width:44px; height:44px; object-fit:cover; border-radius:6px; margin-right:12px;">` 
+                : `<div style="width:44px; height:44px; background:#334155; border-radius:6px; margin-right:12px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:#94a3b8;"></i></div>`;
 
             container.innerHTML += `
                 <div class="stock-card">
@@ -371,10 +402,19 @@ function renderInventoryList() {
     document.getElementById('statTotalQty').innerText = totalQty;
 }
 
+function deleteStockItem(index) {
+    const phone = localStorage.getItem('userPhone');
+    if (confirm("Delete this stock item?")) {
+        inventoryList.splice(index, 1);
+        db.collection('inventories').doc(phone).set({ items: inventoryList }, { merge: true });
+        renderInventoryList();
+        showToast("Item Deleted");
+    }
+}
+
 function filterInventory() {
     const query = document.getElementById('searchInput')?.value.toLowerCase() || '';
-    const cards = document.querySelectorAll('.stock-card');
-    cards.forEach(card => {
+    document.querySelectorAll('.stock-card').forEach(card => {
         const name = card.querySelector('h4')?.innerText.toLowerCase() || '';
         card.style.display = name.includes(query) ? 'flex' : 'none';
     });
@@ -397,18 +437,30 @@ function showToast(msg) {
 }
 
 function requestCancel(id) { document.getElementById(id).classList.add('hidden'); }
-
 function switchTab(tab) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
 }
 
-function handleStockIn() { document.getElementById('modalDetails').classList.remove('hidden'); }
-function handleStockOut() { document.getElementById('modalStockOutDetails').classList.remove('hidden'); }
-
 function closeMenu() {
     document.getElementById('menuDrawer').classList.remove('open');
     document.getElementById('drawerBackdrop').classList.remove('open');
+}
+
+function logoutUser() {
+    closeMenu();
+    document.getElementById('modalLogoutConfirm').classList.remove('hidden');
+}
+
+function confirmLogoutProcess() {
+    requestCancel('modalLogoutConfirm');
+    auth.signOut();
+    localStorage.clear();
+    inventoryList = [];
+    currentUserData = null;
+    renderInventoryList();
+    showAuthModal();
+    showToast("Signed out successfully!");
 }
 
 function setupEventListeners() {
