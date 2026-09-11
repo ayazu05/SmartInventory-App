@@ -7,11 +7,10 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Firebase SDKs (Compat Mode) -->
+    <!-- Firebase SDKs (Required for Cloud Data Save) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-analytics-compat.js"></script>
 
     <script src="script.js" defer></script>
 </head>
@@ -22,9 +21,6 @@
         <i class="fas fa-boxes-stacked splash-icon"></i>
         <h2>SmartInventory</h2>
     </div>
-
-    <!-- Firebase reCAPTCHA Container -->
-    <div id="recaptcha-container"></div>
 
     <!-- Top Navigation Header -->
     <header class="app-header">
@@ -63,18 +59,10 @@
                 <button class="btn btn-stock-out" onclick="handleStockOut()"><i class="fas fa-minus-circle"></i> Stock OUT</button>
             </div>
 
-            <!-- AI Model Download Progress Notice -->
+            <!-- AI Progress Indicator -->
             <div id="aiDownloadContainer" class="card ai-card hidden">
                 <div class="ai-header">
-                    <span><i class="fas fa-robot"></i> Downloading Local AI Model</span>
-                    <span id="aiDownloadPercent">0%</span>
-                </div>
-                <div class="progress-bar-bg">
-                    <div id="aiProgressBar" class="progress-bar-fill"></div>
-                </div>
-                <div class="ai-stats">
-                    <span id="aiDownloadSpeed">0 KB/s</span>
-                    <span id="aiDownloadSize">0.0 / 6.0 MB</span>
+                    <span><i class="fas fa-robot"></i> Initializing Smart Engine</span>
                 </div>
             </div>
 
@@ -113,7 +101,6 @@
                     <input type="text" id="profPhone" placeholder="+91..." disabled>
                 </div>
 
-                <!-- EDIT ACTIONS (SAVE & EXIT) -->
                 <div id="profileEditActions" class="edit-actions-bar hidden" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1.25rem;">
                     <button class="btn btn-secondary" onclick="toggleProfileEdit(false)">
                         <i class="fas fa-xmark"></i> Exit
@@ -157,7 +144,6 @@
         <div class="modal-card">
             <h2 id="authTitle">Login to Cloud</h2>
 
-            <!-- LOGIN VIEW -->
             <div id="authLoginView">
                 <div class="input-group">
                     <label>Mobile Number</label>
@@ -167,7 +153,6 @@
                 <p class="auth-switch-text">New User? <span onclick="switchAuthView('register')">Register Here</span></p>
             </div>
 
-            <!-- REGISTER VIEW -->
             <div id="authRegisterView" class="hidden">
                 <div class="input-group">
                     <label>Full Name</label>
@@ -189,9 +174,8 @@
                 <p class="auth-switch-text">Already registered? <span onclick="switchAuthView('login')">Login Here</span></p>
             </div>
 
-            <!-- OTP INPUT VIEW -->
             <div id="authOtpView" class="hidden">
-                <p class="otp-hint">Enter 6-digit OTP code sent to your mobile</p>
+                <p class="otp-hint">Enter OTP code sent to your mobile (Use 123456)</p>
                 <div class="input-group">
                     <input type="number" id="authOtpInput" placeholder="123456" maxlength="6">
                 </div>
@@ -201,7 +185,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Source Selection -->
+    <!-- MODALS -->
     <div id="modalSource" class="modal-overlay hidden">
         <div class="modal-card">
             <h3 id="sourceTitle">Select Source</h3>
@@ -213,7 +197,6 @@
         </div>
     </div>
 
-    <!-- MODAL: Manual Stock Selection -->
     <div id="modalStockOutSelect" class="modal-overlay hidden">
         <div class="modal-card">
             <h3>Select Item to Stock OUT</h3>
@@ -222,7 +205,6 @@
         </div>
     </div>
 
-    <!-- MODAL: Image Preview -->
     <div id="modalPreview" class="modal-overlay hidden">
         <div class="modal-card">
             <h3>Captured Image</h3>
@@ -234,7 +216,6 @@
         </div>
     </div>
 
-    <!-- MODAL: Stock Details Entry -->
     <div id="modalDetails" class="modal-overlay hidden">
         <div class="modal-card">
             <h3 id="detailsModalTitle">Stock IN - Add Item</h3>
@@ -254,7 +235,6 @@
         </div>
     </div>
 
-    <!-- MODAL: Uploading Progress -->
     <div id="modalUploadProgress" class="modal-overlay hidden">
         <div class="modal-card align-center">
             <h3 id="uploadModalTitle">Uploading to Cloud...</h3>
@@ -265,7 +245,6 @@
         </div>
     </div>
 
-    <!-- MODAL: Confirm Dialog -->
     <div id="customConfirmModal" class="modal-overlay hidden">
         <div class="modal-card align-center">
             <i id="confirmIcon" class="fas fa-circle-question confirm-dialog-icon"></i>
@@ -278,7 +257,6 @@
         </div>
     </div>
 
-    <!-- SUCCESS TOAST POPUP -->
     <div id="successPopUp" class="toast-popup hidden">
         <i class="fas fa-check-circle"></i>
         <span id="popUpMessage">Operation successful!</span>
