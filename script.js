@@ -21,6 +21,7 @@ let currentUserData = null;
 let activeScanMode = 'in';
 let capturedBase64Image = "";
 let selectedModifyItemIndex = null;
+let itemIndexToDelete = null;
 
 // WHATSAPP SUPPORT NUMBER
 const WHATSAPP_NUMBER = "917011162050";
@@ -522,86 +523,12 @@ async function saveModifiedQuantity() {
     }
 
     if (newQty <= 0) {
-        if (confirm("Quantity is set to 0. Remove this item from inventory?")) {
-            inventoryList.splice(selectedModifyItemIndex, 1);
-        } else {
-            return;
-        }
+        deleteStockItem(selectedModifyItemIndex);
+        closeModifyQtyModal();
+        return;
     } else {
         inventoryList[selectedModifyItemIndex].qty = newQty;
     }
 
     try {
-        const cleanPayload = JSON.parse(JSON.stringify(inventoryList));
-        await db.collection('inventories').doc(phone).set({ items: cleanPayload, lastUpdated: new Date().toISOString() }, { merge: true });
-        renderInventoryList();
-        closeModifyQtyModal();
-        showToast("Quantity Updated!");
-    } catch (err) {
-        alert("Failed to update quantity: " + err.message);
-    }
-}
-
-function deleteStockItem(index) {
-    const phone = localStorage.getItem('userPhone');
-    if (confirm("Delete this stock item?")) {
-        inventoryList.splice(index, 1);
-        const cleanPayload = JSON.parse(JSON.stringify(inventoryList));
-        db.collection('inventories').doc(phone).set({ items: cleanPayload }, { merge: true });
-        renderInventoryList();
-        showToast("Item Deleted");
-    }
-}
-
-function filterInventory() {
-    const query = document.getElementById('searchInput')?.value.toLowerCase() || '';
-    document.querySelectorAll('.stock-card').forEach(card => {
-        const name = card.querySelector('h4')?.innerText.toLowerCase() || '';
-        card.style.display = name.includes(query) ? 'flex' : 'none';
-    });
-}
-
-function updateUserUI(userData) {
-    if (!userData) return;
-    document.getElementById('menuUserName').innerText = userData.name || 'User';
-    document.getElementById('menuUserFarm').innerText = userData.farm || 'My Farm';
-    document.getElementById('profName').value = userData.name || '';
-    document.getElementById('profFarm').value = userData.farm || '';
-    document.getElementById('profPhone').value = userData.phone || '';
-}
-
-function toggleProfileEdit(enable) {
-    document.getElementById('profName').disabled = !enable;
-    document.getElementById('profFarm').disabled = !enable;
-    if (enable) {
-        document.getElementById('profileEditActions').classList.remove('hidden');
-        document.getElementById('btnEditProfile').style.display = 'none';
-    } else {
-        document.getElementById('profileEditActions').classList.add('hidden');
-        document.getElementById('btnEditProfile').style.display = 'inline-block';
-        updateUserUI(currentUserData);
-    }
-}
-
-async function saveProfileChanges() {
-    const name = document.getElementById('profName').value.trim();
-    const farm = document.getElementById('profFarm').value.trim();
-    const phone = localStorage.getItem('userPhone');
-
-    if (!name || !farm) {
-        alert("Name and Farm Name cannot be empty.");
-        return;
-    }
-
-    try {
-        currentUserData.name = name;
-        currentUserData.farm = farm;
-        await db.collection('users').doc(phone).update({ name, farm });
-        localStorage.setItem('userData', JSON.stringify(currentUserData));
-        updateUserUI(currentUserData);
-        toggleProfileEdit(false);
-        showToast("Profile Updated!");
-    } catch (err) {
-        alert("Failed to update profile: " + err.message);
-    }
-}
+        const cleanPayload = JSON.p
