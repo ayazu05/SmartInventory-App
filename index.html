@@ -102,70 +102,68 @@
         </section>
     </main>
 
-    <!-- SEPARATE AUTHENTICATION OVERLAY -->
+    <!-- AUTHENTICATION OVERLAY (SEPARATE LOGIN AND SIGNUP SCREEN) -->
     <div id="authOverlay" class="modal-overlay hidden">
-        <div class="modal-card">
+        
+        <!-- 1. SEPARATE LOGIN CARD -->
+        <div id="authLoginCard" class="modal-card">
+            <div class="auth-header">
+                <h2>Account Login</h2>
+                <p style="font-size:0.85rem; color:#9ca3af; margin-bottom:12px;">Sign in with your phone number</p>
+            </div>
             
-            <!-- 1. LOGIN SCREEN (DEFAULT) -->
-            <div id="authLoginView" class="auth-view">
-                <div class="auth-header">
-                    <h2>Account Login</h2>
-                    <p style="font-size:0.85rem; color:#9ca3af; margin-bottom:12px;">Enter your phone number to sign in</p>
+            <div id="authPhoneSubView">
+                <div class="input-group">
+                    <label>Mobile Phone Number</label>
+                    <input type="tel" id="authPhoneInput" placeholder="10 Digit Number (e.g. 7011162050)">
                 </div>
-                
-                <div id="authPhoneSubView">
-                    <div class="input-group">
-                        <label>Mobile Phone Number</label>
-                        <input type="tel" id="authPhoneInput" placeholder="10 Digit Number (e.g. 7011162050)">
-                    </div>
-                    <div id="recaptcha-container"></div>
-                    <button class="btn btn-primary btn-full mt-2" onclick="sendOTP('login')">Send OTP</button>
-                </div>
-
-                <div id="authOtpSubView" class="hidden">
-                    <div class="input-group">
-                        <label>Enter 6-Digit OTP</label>
-                        <input type="number" id="authOtpInput" placeholder="------">
-                    </div>
-                    <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP('login')">Verify & Sign In</button>
-                    <p class="auth-switch-text mt-2"><span onclick="resetAuthView()">Change Number</span></p>
-                </div>
-
-                <div class="auth-footer mt-2" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
-                    <p style="font-size:0.85rem; color:#9ca3af;">Don't have an account? <span onclick="showRegisterWindow()" style="color:#3b82f6; cursor:pointer; font-weight:bold;">Sign Up</span></p>
-                </div>
+                <div id="recaptcha-container"></div>
+                <button class="btn btn-primary btn-full mt-2" onclick="sendOTP('login')">Send OTP</button>
             </div>
 
-            <!-- 2. SEPARATE SIGN UP WINDOW -->
-            <div id="authRegisterView" class="auth-view hidden">
-                <div class="auth-header">
-                    <h2>Create New Account</h2>
-                    <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 12px;">Register your details to continue</p>
+            <div id="authOtpSubView" style="display: none;">
+                <div class="input-group">
+                    <label>Enter 6-Digit OTP</label>
+                    <input type="number" id="authOtpInput" placeholder="------">
                 </div>
-
-                <div id="regFormFields">
-                    <div class="input-group">
-                        <input type="text" id="regNameInput" placeholder="Your Full Name">
-                        <input type="text" id="regFarmInput" placeholder="Farm / Business Name">
-                        <input type="tel" id="regPhoneInput" placeholder="10 Digit Mobile Number">
-                    </div>
-                    <button class="btn btn-primary btn-full mt-2" onclick="sendOTP('register')">Send OTP for Registration</button>
-                </div>
-
-                <div id="regOtpFields" class="hidden">
-                    <div class="input-group">
-                        <label>Enter 6-Digit Verification Code</label>
-                        <input type="number" id="regOtpInput" placeholder="------">
-                    </div>
-                    <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP('register')">Complete Registration</button>
-                </div>
-
-                <div class="auth-footer mt-2" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px;">
-                    <p style="font-size:0.85rem; color:#9ca3af;">Already have an account? <span onclick="showLoginWindow()" style="color:#3b82f6; cursor:pointer; font-weight:bold;">Sign In</span></p>
-                </div>
+                <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP('login')">Verify & Sign In</button>
+                <p class="auth-switch-text mt-2"><span onclick="resetAuthView()" style="color:#3b82f6; cursor:pointer;">Change Number</span></p>
             </div>
 
+            <div class="auth-footer mt-2" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 15px;">
+                <p style="font-size:0.85rem; color:#9ca3af;">Don't have an account? <span onclick="switchToSignUp()" style="color:#3b82f6; cursor:pointer; font-weight:bold;">Sign Up</span></p>
+            </div>
         </div>
+
+        <!-- 2. SEPARATE SIGN UP CARD -->
+        <div id="authSignUpCard" class="modal-card" style="display: none;">
+            <div class="auth-header">
+                <h2>New User Registration</h2>
+                <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 12px;">Create your account profile to continue</p>
+            </div>
+
+            <div id="regFormFields">
+                <div class="input-group" style="display: flex; flex-direction: column; gap: 10px;">
+                    <input type="text" id="regNameInput" placeholder="Your Full Name">
+                    <input type="text" id="regFarmInput" placeholder="Farm / Business Name">
+                    <input type="tel" id="regPhoneInput" placeholder="10 Digit Mobile Number">
+                </div>
+                <button class="btn btn-primary btn-full mt-2" onclick="sendOTP('register')">Send OTP for Registration</button>
+            </div>
+
+            <div id="regOtpFields" style="display: none;">
+                <div class="input-group">
+                    <label>Enter 6-Digit Verification Code</label>
+                    <input type="number" id="regOtpInput" placeholder="------">
+                </div>
+                <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP('register')">Complete Registration</button>
+            </div>
+
+            <div class="auth-footer mt-2" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 15px;">
+                <p style="font-size:0.85rem; color:#9ca3af;">Already have an account? <span onclick="switchToLogin()" style="color:#3b82f6; cursor:pointer; font-weight:bold;">Sign In</span></p>
+            </div>
+        </div>
+
     </div>
 
     <!-- STOCK IN MODAL -->
