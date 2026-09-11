@@ -21,6 +21,7 @@ const db = firebase.firestore();
 // Global App States
 let confirmationResultGlobal = null;
 let currentAuthMode = 'login';
+let pendingRegistrationData = null;
 let pendingProfileUpdate = null;
 
 let currentUserData = null;
@@ -39,15 +40,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEvents();
     initRecaptcha();
 
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async (user) => {
         if (user) {
             localStorage.setItem('userPhone', user.phoneNumber);
-            fetchUserDataAndSync(user.phoneNumber);
+            await fetchUserDataAndSync(user.phoneNumber);
             document.getElementById('authOverlay')?.classList.add('hidden');
         } else {
             const savedPhone = localStorage.getItem('userPhone');
             if (savedPhone) {
-                fetchUserDataAndSync(savedPhone);
+                await fetchUserDataAndSync(savedPhone);
                 document.getElementById('authOverlay')?.classList.add('hidden');
             } else {
                 document.getElementById('authOverlay')?.classList.remove('hidden');
@@ -86,6 +87,15 @@ function setupEvents() {
     document.getElementById('btnConfirmYes')?.addEventListener('click', handleConfirmAction);
 }
 
+// Phone Number Standardizer
+function normalizePhoneNumber(phone) {
+    let cleaned = phone.replace(/[^\d+]/g, '');
+    if (!cleaned.startsWith('+')) {
+        cleaned = '+91' + cleaned.replace(/^0+/, '');
+    }
+    return cleaned;
+}
+
 // Authentication & Dynamic OTP Flow
 function switchAuthView(mode) {
     currentAuthMode = mode;
@@ -107,15 +117,26 @@ function switchAuthView(mode) {
 
 async function sendAuthOtp(mode) {
     let phoneInput = mode === 'register' ? document.getElementById('regPhone') : document.getElementById('loginPhone');
-    let phone = phoneInput ? phoneInput.value.trim() : '';
+    let rawPhone = phoneInput ? phoneInput.value.trim() : '';
 
-    if (!phone || phone.length < 10) {
+    if (!rawPhone || rawPhone.length < 10) {
         showSuccessPopUp("Enter valid mobile number!");
         return;
     }
 
-    if (!phone.startsWith('+')) {
-        phone = '+91' + phone.replace(/^0+/, '');
+    const phone = normalizePhoneNumber(rawPhone);
+
+    if (mode === 'register') {
+        const name = document.getElementById('regName').value.trim();
+        const farm = document.getElementById('regFarm').value.trim();
+        const email = document.getElementById('regEmail').value.trim();
+
+        if (!name || !farm) {
+            showSuccessPopUp("Please enter Name and Farm Name!");
+            return;
+        }
+
+        pendingRegistrationData = { name, farm, email, phone };
     }
 
     try {
@@ -123,11 +144,13 @@ async function sendAuthOtp(mode) {
 
         if (mode === 'register' && userDoc.exists) {
             showSuccessPopUp("Number Already Registered! Please Login.");
+            switchAuthView('login');
             return;
         }
 
         if (mode === 'login' && !userDoc.exists) {
             showSuccessPopUp("Number not registered! Please Register first.");
+            switchAuthView('register');
             return;
         }
 
@@ -150,15 +173,16 @@ function verifyAuthOtp() {
     confirmationResultGlobal.confirm(otp).then(async (result) => {
         const phone = result.user.phoneNumber;
 
-        if (currentAuthMode === 'register') {
+        if (currentAuthMode === 'register' && pendingRegistrationData) {
             const userData = {
-                name: document.getElementById('regName').value.trim() || 'User',
-                email: document.getElementById('regEmail').value.trim() || '',
-                farm: document.getElementById('regFarm').value.trim() || 'My Farm',
+                name: pendingRegistrationData.name,
+                farm: pendingRegistrationData.farm,
+                email: pendingRegistrationData.email,
                 phone: phone,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             await db.collection('users').doc(phone).set(userData, { merge: true });
+            pendingRegistrationData = null;
         }
 
         if (pendingProfileUpdate) {
@@ -171,7 +195,7 @@ function verifyAuthOtp() {
         
         document.getElementById('authOverlay')?.classList.add('hidden');
         showSuccessPopUp("Verified & Logged In!");
-    }).catch(() => {
+    }).catch((err) => {
         showSuccessPopUp("Invalid OTP!");
     });
 }
@@ -180,21 +204,23 @@ function cancelAuthFlow() {
     switchAuthView(currentAuthMode);
 }
 
-// User Profile Management & Permanent Cloud Data Sync
+// Profile Data Sync & Management
 async function fetchUserDataAndSync(phone) {
     if (!phone) return;
 
     try {
-        const doc = await db.collection('users').doc(phone).get();
+        const normalizedPhone = normalizePhoneNumber(phone);
+        const doc = await db.collection('users').doc(normalizedPhone).get();
+
         if (doc.exists) {
             currentUserData = doc.data();
 
             if (document.getElementById('profName')) document.getElementById('profName').value = currentUserData.name || '';
             if (document.getElementById('profFarm')) document.getElementById('profFarm').value = currentUserData.farm || '';
             if (document.getElementById('profEmail')) document.getElementById('profEmail').value = currentUserData.email || '';
-            if (document.getElementById('profPhone')) document.getElementById('profPhone').value = currentUserData.phone || phone;
+            if (document.getElementById('profPhone')) document.getElementById('profPhone').value = currentUserData.phone || normalizedPhone;
 
-            db.collection('inventories').doc(phone).onSnapshot((snap) => {
+            db.collection('inventories').doc(normalizedPhone).onSnapshot((snap) => {
                 if (snap.exists && snap.data().items) {
                     inventoryList = snap.data().items;
                 } else {
@@ -208,7 +234,6 @@ async function fetchUserDataAndSync(phone) {
     }
 }
 
-// Profile Edit Mode (Toggle, Save & Exit)
 function toggleProfileEdit(enable) {
     const fields = ['profName', 'profFarm', 'profEmail', 'profPhone'];
     fields.forEach(id => {
@@ -237,29 +262,31 @@ function toggleProfileEdit(enable) {
 async function saveProfileChanges() {
     if (!currentUserData) return;
 
+    const newName = document.getElementById('profName').value.trim();
+    const newFarm = document.getElementById('profFarm').value.trim();
     const newEmail = document.getElementById('profEmail').value.trim();
-    const newPhone = document.getElementById('profPhone').value.trim();
+    const rawPhone = document.getElementById('profPhone').value.trim();
+    const newPhone = normalizePhoneNumber(rawPhone);
 
-    if (newEmail !== currentUserData.email || newPhone !== currentUserData.phone) {
+    if (newPhone !== currentUserData.phone) {
         pendingProfileUpdate = {
-            name: document.getElementById('profName').value.trim(),
-            farm: document.getElementById('profFarm').value.trim(),
+            name: newName,
+            farm: newFarm,
             email: newEmail,
             phone: newPhone
         };
         switchAuthView('login');
         document.getElementById('authOverlay')?.classList.remove('hidden');
-        showSuccessPopUp("Verify OTP for Email/Phone update!");
+        showSuccessPopUp("Verify OTP for Phone Number update!");
         return;
     }
 
-    await db.collection('users').doc(currentUserData.phone).update({
-        name: document.getElementById('profName').value.trim(),
-        farm: document.getElementById('profFarm').value.trim()
-    });
+    const updatedObj = { name: newName, farm: newFarm, email: newEmail };
+    await db.collection('users').doc(currentUserData.phone).update(updatedObj);
 
-    currentUserData.name = document.getElementById('profName').value.trim();
-    currentUserData.farm = document.getElementById('profFarm').value.trim();
+    currentUserData.name = newName;
+    currentUserData.farm = newFarm;
+    currentUserData.email = newEmail;
 
     toggleProfileEdit(false);
     showSuccessPopUp("Profile Saved Successfully!");
@@ -275,7 +302,7 @@ function logoutUser() {
 async function saveInventoryToCloud() {
     const phone = currentUserData?.phone || localStorage.getItem('userPhone');
     if (phone) {
-        await db.collection('inventories').doc(phone).set({ items: inventoryList });
+        await db.collection('inventories').doc(normalizePhoneNumber(phone)).set({ items: inventoryList });
     }
 }
 

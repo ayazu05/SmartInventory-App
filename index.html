@@ -35,7 +35,7 @@
         </div>
     </header>
 
-    <!-- Side Menu Drawer -->
+    <!-- Side Menu Drawer (Updated with Stock Controls) -->
     <div id="drawerBackdrop" class="drawer-backdrop"></div>
     <aside id="menuDrawer" class="menu-drawer pos-left">
         <div class="drawer-header">
@@ -43,7 +43,10 @@
             <button id="btnCloseMenu" class="icon-btn"><i class="fas fa-xmark"></i></button>
         </div>
         <nav class="drawer-nav">
-            <button class="nav-item" onclick="switchTab('stocks'); closeMenu();"><i class="fas fa-boxes-stacked"></i> Stocks</button>
+            <button class="nav-item" onclick="switchTab('stocks'); closeMenu();"><i class="fas fa-boxes-stacked"></i> View Stocks</button>
+            <button class="nav-item" onclick="handleStockIn(); closeMenu();" style="color: #10b981;"><i class="fas fa-plus-circle"></i> Stock IN</button>
+            <button class="nav-item" onclick="handleStockOut(); closeMenu();" style="color: #f43f5e;"><i class="fas fa-minus-circle"></i> Stock OUT</button>
+            <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 0.5rem 0;">
             <button class="nav-item" onclick="switchTab('profile'); closeMenu();"><i class="fas fa-user"></i> Profile</button>
             <button class="nav-item" onclick="switchTab('settings'); closeMenu();"><i class="fas fa-gear"></i> Settings</button>
             <button class="nav-item logout-btn" onclick="logoutUser()"><i class="fas fa-right-from-bracket"></i> Logout</button>
@@ -80,7 +83,7 @@
             </div>
         </section>
 
-        <!-- PROFILE TAB (UPDATED WITH BACK, EDIT, SAVE & EXIT) -->
+        <!-- PROFILE TAB -->
         <section id="tabProfile" class="tab-content">
             <div class="card profile-card">
                 <div class="profile-header-bar" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
