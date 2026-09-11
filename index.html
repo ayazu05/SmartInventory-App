@@ -60,8 +60,6 @@
 
     <main class="main-content">
         <section id="tabStocks" class="tab-content active">
-            
-            <!-- STYLISH THEMED WELCOME BANNER -->
             <div class="welcome-banner glassmorphism mb-3">
                 <i class="fas fa-robot banner-icon"></i>
                 <h2>Your Ai Stock Manager IS Ready</h2>
@@ -76,7 +74,6 @@
                 </div>
             </div>
 
-            <!-- BOTH ACTION BUTTONS (STOCK IN & STOCK OUT) RESTORED -->
             <div class="action-bar">
                 <button class="btn btn-stock-in" onclick="handleStockIn()"><i class="fas fa-plus"></i> Stock IN</button>
                 <button class="btn btn-stock-out" onclick="handleStockOut()"><i class="fas fa-minus"></i> Stock OUT</button>
@@ -122,8 +119,19 @@
                     <label>Enter 6-Digit Verification Code</label>
                     <input type="number" id="authOtpInput" placeholder="------">
                 </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP()">Verify OTP & Login</button>
+                <button class="btn btn-primary btn-full mt-2" onclick="verifyOTP()">Verify OTP</button>
                 <p class="auth-switch-text mt-2"><span onclick="resetAuthView()">Change Number</span></p>
+            </div>
+
+            <!-- NEW REGISTRATION STEP VIEW -->
+            <div id="authRegisterView" class="auth-view hidden">
+                <h3>New User Registration</h3>
+                <p style="font-size: 0.85rem; color: #9ca3af; margin-bottom: 12px;">Create your account profile to continue.</p>
+                <div class="input-group">
+                    <input type="text" id="regNameInput" placeholder="Your Full Name">
+                    <input type="text" id="regFarmInput" placeholder="Farm / Business Name">
+                </div>
+                <button class="btn btn-primary btn-full mt-2" onclick="completeRegistration()">Register & Continue</button>
             </div>
         </div>
     </div>
