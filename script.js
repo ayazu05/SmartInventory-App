@@ -9,7 +9,6 @@ const firebaseConfig = {
     measurementId: "G-RHFYPD8WKV"
 };
 
-// Initialize Firebase SDK
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
@@ -20,6 +19,7 @@ const db = firebase.firestore();
 let confirmationResultObj = null;
 let inventoryList = [];
 let currentUserData = null;
+let tempVerifiedPhone = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     setTimeout(forceHideSplash, 800);
@@ -40,7 +40,7 @@ function setupRecaptcha() {
     });
 }
 
-// 1. Firebase Mobile OTP Auth Flow
+// 1. Firebase Mobile OTP Flow
 async function sendOTP() {
     const rawPhone = document.getElementById('authPhoneInput').value.trim();
     if (!rawPhone || rawPhone.length < 10) {
@@ -72,44 +72,73 @@ async function verifyOTP() {
 
     try {
         const result = await confirmationResultObj.confirm(code);
-        const firebaseUser = result.user;
-        const phone = firebaseUser.phoneNumber;
+        tempVerifiedPhone = result.user.phoneNumber;
 
-        await syncUserAndLoadData(phone);
+        await checkUserRegistration(tempVerifiedPhone);
     } catch (error) {
         console.error("OTP Verification Error:", error);
         alert("Invalid OTP Code. Please try again.");
     }
 }
 
-// 2. Sync User Data & Existing Stocks from Firestore
-async function syncUserAndLoadData(phone) {
-    let userData = { phone: phone, name: "User " + phone.slice(-4), farm: "My Farm" };
-
+// 2. Check If User Is Registered Or Needs Registration
+async function checkUserRegistration(phone) {
     try {
-        const userDoc = await db.collection('users').doc(phone).get();
-        if (userDoc.exists) {
-            userData = userDoc.data();
-        } else {
+        let userDoc = await db.collection('users').doc(phone).get();
+        
+        if (!userDoc.exists) {
             const rawDigits = phone.replace('+91', '');
-            const fallbackDoc = await db.collection('users').doc(rawDigits).get();
-            if (fallbackDoc.exists) {
-                userData = fallbackDoc.data();
-            } else {
-                await db.collection('users').doc(phone).set(userData);
-            }
+            userDoc = await db.collection('users').doc(rawDigits).get();
+        }
+
+        if (userDoc.exists) {
+            // User Exists -> Direct Login
+            const userData = userDoc.data();
+            finishLoginSuccess(phone, userData);
+        } else {
+            // New User -> Open Registration Form
+            document.getElementById('authOtpView').classList.add('hidden');
+            document.getElementById('authRegisterView').classList.remove('hidden');
         }
     } catch (e) {
-        console.warn("User fetch error:", e);
+        console.error("Registration Check Error:", e);
+        alert("Server error during login check.");
+    }
+}
+
+async function completeRegistration() {
+    const name = document.getElementById('regNameInput').value.trim();
+    const farm = document.getElementById('regFarmInput').value.trim();
+
+    if (!name || !farm) {
+        alert("Please enter both Name and Farm/Business name.");
+        return;
     }
 
+    const newUserData = {
+        phone: tempVerifiedPhone,
+        name: name,
+        farm: farm,
+        createdAt: new Date().toISOString()
+    };
+
+    try {
+        await db.collection('users').doc(tempVerifiedPhone).set(newUserData);
+        showToast("Registration Successful!");
+        finishLoginSuccess(tempVerifiedPhone, newUserData);
+    } catch (e) {
+        alert("Failed to complete registration: " + e.message);
+    }
+}
+
+function finishLoginSuccess(phone, userData) {
     currentUserData = userData;
     localStorage.setItem('userPhone', phone);
     localStorage.setItem('userData', JSON.stringify(userData));
 
     updateUserUI(userData);
     hideAuthModal();
-    await loadCloudInventory(phone);
+    loadCloudInventory(phone);
 }
 
 async function loadCloudInventory(phone) {
@@ -158,10 +187,14 @@ function hideAuthModal() {
 function resetAuthView() {
     document.getElementById('authPhoneView').classList.remove('hidden');
     document.getElementById('authOtpView').classList.add('hidden');
+    document.getElementById('authRegisterView').classList.add('hidden');
 }
 
+// LOGOUT WITH CONFIRMATION POPUP
 function logoutUser() {
-    if (confirm("Sign out from app?")) {
+    const confirmLogout = window.confirm("Are you sure you want to sign out from your account?");
+    
+    if (confirmLogout) {
         auth.signOut();
         localStorage.clear();
         inventoryList = [];
@@ -169,20 +202,14 @@ function logoutUser() {
         renderInventoryList();
         showAuthModal();
         closeMenu();
+        showToast("Signed out successfully!");
     }
 }
 
-// 3. Stock IN & Stock OUT Handling
+// 3. Stock Actions (IN / OUT)
 async function uploadToCloudProcess(type = 'in') {
-    let nameInput, qtyInput;
-
-    if (type === 'out') {
-        nameInput = document.getElementById('outProdName');
-        qtyInput = document.getElementById('outProdQty');
-    } else {
-        nameInput = document.getElementById('prodName');
-        qtyInput = document.getElementById('prodQty');
-    }
+    let nameInput = (type === 'out') ? document.getElementById('outProdName') : document.getElementById('prodName');
+    let qtyInput = (type === 'out') ? document.getElementById('outProdQty') : document.getElementById('prodQty');
 
     const name = nameInput ? nameInput.value.trim() : '';
     const qty = qtyInput ? parseInt(qtyInput.value, 10) : 0;
@@ -240,9 +267,12 @@ function deleteStockItem(index) {
     const phone = localStorage.getItem('userPhone');
     if (!phone) return;
 
-    inventoryList.splice(index, 1);
-    db.collection('inventories').doc(phone).set({ items: inventoryList }, { merge: true });
-    renderInventoryList();
+    if (confirm("Are you sure you want to delete this stock item?")) {
+        inventoryList.splice(index, 1);
+        db.collection('inventories').doc(phone).set({ items: inventoryList }, { merge: true });
+        renderInventoryList();
+        showToast("Item Deleted");
+    }
 }
 
 function renderInventoryList() {
