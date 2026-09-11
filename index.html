@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Firebase SDKs (Compat Mode for Browser Compatibility) -->
+    <!-- Firebase SDKs (Compat Mode) -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -23,7 +23,7 @@
         <h2>SmartInventory</h2>
     </div>
 
-    <!-- Firebase reCAPTCHA Container (Invisible) -->
+    <!-- Firebase reCAPTCHA Container -->
     <div id="recaptcha-container"></div>
 
     <!-- Top Navigation Header -->
@@ -35,7 +35,7 @@
         </div>
     </header>
 
-    <!-- Side Menu Drawer (Updated with Stock Controls) -->
+    <!-- Side Menu Drawer -->
     <div id="drawerBackdrop" class="drawer-backdrop"></div>
     <aside id="menuDrawer" class="menu-drawer pos-left">
         <div class="drawer-header">
@@ -148,11 +148,11 @@
 
     </main>
 
-    <!-- Hidden Input Controls for Camera & Gallery -->
+    <!-- Hidden Input Controls -->
     <input type="file" id="inputCamera" accept="image/*" capture="environment" class="hidden">
     <input type="file" id="inputFile" accept="image/*" class="hidden">
 
-    <!-- AUTH OVERLAY (Login & Register) -->
+    <!-- AUTH OVERLAY -->
     <div id="authOverlay" class="modal-overlay hidden">
         <div class="modal-card">
             <h2 id="authTitle">Login to Cloud</h2>
@@ -161,7 +161,7 @@
             <div id="authLoginView">
                 <div class="input-group">
                     <label>Mobile Number</label>
-                    <input type="tel" id="loginPhone" placeholder="+919876543210">
+                    <input type="tel" id="loginPhone" placeholder="9876543210">
                 </div>
                 <button class="btn btn-primary" onclick="sendAuthOtp('login')">Send OTP</button>
                 <p class="auth-switch-text">New User? <span onclick="switchAuthView('register')">Register Here</span></p>
@@ -183,7 +183,7 @@
                 </div>
                 <div class="input-group">
                     <label>Mobile Number</label>
-                    <input type="tel" id="regPhone" placeholder="+919876543210">
+                    <input type="tel" id="regPhone" placeholder="9876543210">
                 </div>
                 <button class="btn btn-primary" onclick="sendAuthOtp('register')">Register & Get OTP</button>
                 <p class="auth-switch-text">Already registered? <span onclick="switchAuthView('login')">Login Here</span></p>
@@ -191,7 +191,7 @@
 
             <!-- OTP INPUT VIEW -->
             <div id="authOtpView" class="hidden">
-                <p class="otp-hint">Enter the 6-digit OTP sent to your mobile</p>
+                <p class="otp-hint">Enter 6-digit OTP code sent to your mobile</p>
                 <div class="input-group">
                     <input type="number" id="authOtpInput" placeholder="123456" maxlength="6">
                 </div>
@@ -201,7 +201,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Source Selection (Camera vs Gallery) -->
+    <!-- MODAL: Source Selection -->
     <div id="modalSource" class="modal-overlay hidden">
         <div class="modal-card">
             <h3 id="sourceTitle">Select Source</h3>
@@ -213,7 +213,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Manual Stock Selection for Stock OUT -->
+    <!-- MODAL: Manual Stock Selection -->
     <div id="modalStockOutSelect" class="modal-overlay hidden">
         <div class="modal-card">
             <h3>Select Item to Stock OUT</h3>
@@ -227,7 +227,6 @@
         <div class="modal-card">
             <h3>Captured Image</h3>
             <img id="imgPreview" class="preview-img" src="" alt="Preview">
-            <p id="aiScanNotice" class="ai-notice hidden"><i class="fas fa-robot"></i> AI scanning item details...</p>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="requestCancel('modalPreview')">Cancel</button>
                 <button class="btn btn-primary" onclick="proceedToDetails()">Proceed</button>
@@ -235,7 +234,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Stock Item Details Entry -->
+    <!-- MODAL: Stock Details Entry -->
     <div id="modalDetails" class="modal-overlay hidden">
         <div class="modal-card">
             <h3 id="detailsModalTitle">Stock IN - Add Item</h3>
@@ -266,7 +265,7 @@
         </div>
     </div>
 
-    <!-- MODAL: Custom Confirm Dialog -->
+    <!-- MODAL: Confirm Dialog -->
     <div id="customConfirmModal" class="modal-overlay hidden">
         <div class="modal-card align-center">
             <i id="confirmIcon" class="fas fa-circle-question confirm-dialog-icon"></i>
