@@ -1,318 +1,361 @@
-// Live Firebase Configuration Connected
-const firebaseConfig = {
-    apiKey: "AIzaSyARcXw5tfsu2fo2j7-5tqwdk1uhE3hPKvk",
-    authDomain: "smartinventory-app-38080.firebaseapp.com",
-    projectId: "smartinventory-app-38080",
-    storageBucket: "smartinventory-app-38080.firebasestorage.app",
-    messagingSenderId: "649192101754",
-    appId: "1:649192101754:web:1844e31928df3f016428c3",
-    measurementId: "G-RHFYPD8WKV"
-};
-
-// Initialize Firebase SDK
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-const auth = firebase.auth();
-const db = firebase.firestore();
-
-let confirmationResultObj = null;
-let inventoryList = [];
-let currentUserData = null;
-
-document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(forceHideSplash, 800);
-    setupRecaptcha();
-    checkUserAuthentication();
-    setupEventListeners();
-});
-
-function forceHideSplash() {
-    const splash = document.getElementById('appSplashLoader');
-    if (splash) splash.style.display = 'none';
+body.theme-dark {
+    background-color: #0d1117;
+    color: #f3f4f6;
+    min-height: 100vh;
 }
 
-function setupRecaptcha() {
-    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-        'size': 'invisible',
-        'callback': (response) => {}
-    });
+/* Splash Loader */
+.splash-screen {
+    position: fixed;
+    inset: 0;
+    background: #0d1117;
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
-// 1. Firebase Mobile OTP Auth Flow
-async function sendOTP() {
-    const rawPhone = document.getElementById('authPhoneInput').value.trim();
-    if (!rawPhone || rawPhone.length < 10) {
-        alert("Please enter a valid 10-digit mobile number.");
-        return;
-    }
-
-    const formattedPhone = rawPhone.startsWith('+') ? rawPhone : '+91' + rawPhone.slice(-10);
-    const appVerifier = window.recaptchaVerifier;
-
-    try {
-        confirmationResultObj = await auth.signInWithPhoneNumber(formattedPhone, appVerifier);
-        showToast("OTP Sent to " + formattedPhone);
-        document.getElementById('authPhoneView').classList.add('hidden');
-        document.getElementById('authOtpView').classList.remove('hidden');
-    } catch (error) {
-        console.error("OTP Send Error:", error);
-        alert("Failed to send OTP: " + error.message);
-        if (window.recaptchaVerifier) window.recaptchaVerifier.render().then(widgetId => grecaptcha.reset(widgetId));
-    }
+.splash-content h2 {
+    font-size: 1.8rem;
+    color: #10b981;
 }
 
-async function verifyOTP() {
-    const code = document.getElementById('authOtpInput').value.trim();
-    if (!code || code.length < 6) {
-        alert("Please enter the 6-digit OTP code.");
-        return;
-    }
-
-    try {
-        const result = await confirmationResultObj.confirm(code);
-        const firebaseUser = result.user;
-        const phone = firebaseUser.phoneNumber;
-
-        await syncUserAndLoadData(phone);
-    } catch (error) {
-        console.error("OTP Verification Error:", error);
-        alert("Invalid OTP Code. Please try again.");
-    }
+.splash-spinner {
+    width: 35px;
+    height: 35px;
+    border: 3px solid rgba(255,255,255,0.1);
+    border-top-color: #10b981;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 15px auto 0;
 }
 
-// 2. Sync User Data & Existing Stocks from Firestore
-async function syncUserAndLoadData(phone) {
-    let userData = { phone: phone, name: "User " + phone.slice(-4), farm: "My Farm" };
+@keyframes spin { to { transform: rotate(360deg); } }
 
-    try {
-        const userDoc = await db.collection('users').doc(phone).get();
-        if (userDoc.exists) {
-            userData = userDoc.data();
-        } else {
-            const rawDigits = phone.replace('+91', '');
-            const fallbackDoc = await db.collection('users').doc(rawDigits).get();
-            if (fallbackDoc.exists) {
-                userData = fallbackDoc.data();
-            } else {
-                await db.collection('users').doc(phone).set(userData);
-            }
-        }
-    } catch (e) {
-        console.warn("User fetch error:", e);
-    }
-
-    currentUserData = userData;
-    localStorage.setItem('userPhone', phone);
-    localStorage.setItem('userData', JSON.stringify(userData));
-
-    updateUserUI(userData);
-    hideAuthModal();
-    await loadCloudInventory(phone);
+/* Header */
+.app-header {
+    height: 60px;
+    background: #161b22;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-async function loadCloudInventory(phone) {
-    inventoryList = [];
-    try {
-        let doc = await db.collection('inventories').doc(phone).get();
-        
-        if (!doc.exists) {
-            const rawDigits = phone.replace('+91', '');
-            doc = await db.collection('inventories').doc(rawDigits).get();
-        }
-
-        if (doc.exists && doc.data().items) {
-            inventoryList = doc.data().items || [];
-        }
-    } catch (e) {
-        console.error("Inventory Fetch Error:", e);
-    }
-
-    renderInventoryList();
+.header-left, .header-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
-function checkUserAuthentication() {
-    const savedPhone = localStorage.getItem('userPhone');
-    const savedUserData = localStorage.getItem('userData');
-
-    if (savedPhone && savedUserData) {
-        currentUserData = JSON.parse(savedUserData);
-        updateUserUI(currentUserData);
-        hideAuthModal();
-        loadCloudInventory(savedPhone);
-    } else {
-        showAuthModal();
-    }
+.brand {
+    font-size: 1.1rem;
+    font-weight: 700;
 }
 
-function showAuthModal() {
-    document.getElementById('authOverlay').classList.remove('hidden');
-    resetAuthView();
+.icon-btn, .avatar-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 6px 10px;
 }
 
-function hideAuthModal() {
-    document.getElementById('authOverlay').classList.add('hidden');
+.status-pill {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-function resetAuthView() {
-    document.getElementById('authPhoneView').classList.remove('hidden');
-    document.getElementById('authOtpView').classList.add('hidden');
+.status-pill .dot {
+    width: 8px;
+    height: 8px;
+    background-color: #10b981;
+    border-radius: 50%;
 }
 
-function logoutUser() {
-    if (confirm("Sign out from app?")) {
-        auth.signOut();
-        localStorage.clear();
-        inventoryList = [];
-        currentUserData = null;
-        renderInventoryList();
-        showAuthModal();
-        closeMenu();
-    }
+/* Navigation Drawer */
+.drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    display: none;
 }
 
-// 3. Stock IN & Stock OUT Handling
-async function uploadToCloudProcess(type = 'in') {
-    let nameInput, qtyInput;
+.drawer-backdrop.open { display: block; }
 
-    if (type === 'out') {
-        nameInput = document.getElementById('outProdName');
-        qtyInput = document.getElementById('outProdQty');
-    } else {
-        nameInput = document.getElementById('prodName');
-        qtyInput = document.getElementById('prodQty');
-    }
-
-    const name = nameInput ? nameInput.value.trim() : '';
-    const qty = qtyInput ? parseInt(qtyInput.value, 10) : 0;
-    const phone = localStorage.getItem('userPhone');
-
-    if (!name || isNaN(qty) || qty <= 0 || !phone) {
-        alert("Please enter a valid item name and quantity.");
-        return;
-    }
-
-    requestCancel(type === 'out' ? 'modalStockOutDetails' : 'modalDetails');
-
-    const index = inventoryList.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
-
-    if (type === 'in') {
-        if (index > -1) {
-            inventoryList[index].qty += qty;
-        } else {
-            inventoryList.push({ name: name, qty: qty, id: 'item_' + Date.now() });
-        }
-        showToast("Stock IN Updated!");
-    } else if (type === 'out') {
-        if (index > -1) {
-            if (inventoryList[index].qty < qty) {
-                alert("Insufficient stock quantity!");
-                return;
-            }
-            inventoryList[index].qty -= qty;
-            if (inventoryList[index].qty <= 0) {
-                inventoryList.splice(index, 1);
-            }
-            showToast("Stock OUT Updated!");
-        } else {
-            alert("Item not found in stock!");
-            return;
-        }
-    }
-
-    try {
-        await db.collection('inventories').doc(phone).set({
-            items: inventoryList,
-            lastUpdated: new Date().toISOString()
-        }, { merge: true });
-    } catch (e) {
-        showToast("Error Saving Data");
-    }
-
-    if (nameInput) nameInput.value = '';
-    if (qtyInput) qtyInput.value = '';
-
-    renderInventoryList();
+.menu-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 260px;
+    background: #161b22;
+    border-right: 1px solid rgba(255,255,255,0.1);
+    z-index: 201;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    padding: 20px;
 }
 
-function deleteStockItem(index) {
-    const phone = localStorage.getItem('userPhone');
-    if (!phone) return;
+.menu-drawer.open { transform: translateX(0); }
 
-    inventoryList.splice(index, 1);
-    db.collection('inventories').doc(phone).set({ items: inventoryList }, { merge: true });
-    renderInventoryList();
+.drawer-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
 }
 
-function renderInventoryList() {
-    const container = document.getElementById('stockListContainer');
-    if (!container) return;
-    container.innerHTML = '';
-    let totalQty = 0;
-
-    if (inventoryList.length === 0) {
-        container.innerHTML = `<p style="text-align:center; padding:20px; color:#888;">No inventory items found.</p>`;
-    } else {
-        inventoryList.forEach((item, index) => {
-            totalQty += Number(item.qty) || 0;
-            container.innerHTML += `
-                <div class="stock-card">
-                    <div class="stock-info">
-                        <h4>${item.name}</h4>
-                        <span class="qty-badge">Qty: ${item.qty}</span>
-                    </div>
-                    <button class="btn-delete" onclick="deleteStockItem(${index})"><i class="fas fa-trash"></i></button>
-                </div>`;
-        });
-    }
-
-    document.getElementById('statTotalItems').innerText = inventoryList.length;
-    document.getElementById('statTotalQty').innerText = totalQty;
+.drawer-profile-preview {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.05);
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 15px;
 }
 
-function filterInventory() {
-    const query = document.getElementById('searchInput')?.value.toLowerCase() || '';
-    const cards = document.querySelectorAll('.stock-card');
-    cards.forEach(card => {
-        const name = card.querySelector('h4')?.innerText.toLowerCase() || '';
-        card.style.display = name.includes(query) ? 'flex' : 'none';
-    });
+.preview-avatar {
+    width: 36px;
+    height: 36px;
+    background: #10b981;
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-function updateUserUI(userData) {
-    if (!userData) return;
-    document.getElementById('menuUserName').innerText = userData.name || 'User';
-    document.getElementById('menuUserFarm').innerText = userData.farm || 'My Farm';
-    document.getElementById('profName').value = userData.name || '';
-    document.getElementById('profFarm').value = userData.farm || '';
-    document.getElementById('profPhone').value = userData.phone || '';
+.drawer-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-function showToast(msg) {
-    const toast = document.getElementById('successPopUp');
-    document.getElementById('popUpMessage').innerText = msg;
-    toast.classList.remove('hidden');
-    setTimeout(() => toast.classList.add('hidden'), 3000);
+.nav-item {
+    background: transparent;
+    border: none;
+    color: #9ca3af;
+    padding: 10px 12px;
+    border-radius: 8px;
+    text-align: left;
+    font-size: 0.9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
-function requestCancel(id) { document.getElementById(id).classList.add('hidden'); }
-function switchTab(tab) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-}
-function handleStockIn() { document.getElementById('modalDetails').classList.remove('hidden'); }
-function handleStockOut() { document.getElementById('modalStockOutDetails').classList.remove('hidden'); }
-
-function closeMenu() {
-    document.getElementById('menuDrawer').classList.remove('open');
-    document.getElementById('drawerBackdrop').classList.remove('open');
+.nav-item:hover, .nav-item.active {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
 }
 
-function setupEventListeners() {
-    document.getElementById('btnOpenMenu').onclick = () => {
-        document.getElementById('menuDrawer').classList.add('open');
-        document.getElementById('drawerBackdrop').classList.add('open');
-    };
-    document.getElementById('btnCloseMenu').onclick = closeMenu;
+.nav-item.logout-btn { color: #ef4444; }
+.nav-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 0; }
+
+/* Main Layout */
+.main-content {
+    padding: 16px;
+    max-width: 800px;
+    margin: 0 auto;
 }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* Welcome Banner */
+.welcome-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 14px;
+    background: #161b22;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    text-align: center;
+}
+
+.welcome-banner .banner-icon { font-size: 1.3rem; color: #10b981; }
+.welcome-banner h2 { font-size: 1.1rem; color: #10b981; }
+
+/* Stats Grid */
+.stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.stat-card {
+    background: #161b22;
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 14px;
+    border-radius: 12px;
+}
+
+.stat-label { font-size: 0.8rem; color: #9ca3af; }
+.stat-card h3 { font-size: 1.4rem; margin-top: 4px; }
+
+/* Actions & Search */
+.action-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.btn {
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.btn-stock-in { background: #10b981; color: #000; }
+.btn-stock-out { background: #ef4444; color: #fff; }
+.btn-primary { background: #3b82f6; color: #fff; }
+.btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-full { width: 100%; }
+
+.search-bar-card input {
+    width: 100%;
+    padding: 12px;
+    background: #161b22;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 10px;
+    color: #fff;
+    margin-bottom: 16px;
+    outline: none;
+}
+
+/* Item List */
+.stock-list { display: flex; flex-direction: column; gap: 10px; }
+
+.stock-card {
+    background: #161b22;
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 14px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.qty-badge {
+    font-size: 0.8rem;
+    color: #10b981;
+    background: rgba(16,185,129,0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.btn-delete {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Modals */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 16px;
+}
+
+.modal-overlay.hidden { display: none !important; }
+
+.modal-card {
+    background: #161b22;
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 20px;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.modal-card input {
+    width: 100%;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #fff;
+    margin-bottom: 10px;
+    outline: none;
+}
+
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Profile Card */
+.profile-card {
+    background: #161b22;
+    border: 1px solid rgba(255,255,255,0.1);
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.profile-card input {
+    width: 100%;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    color: #fff;
+    margin-top: 10px;
+}
+
+/* Toast Notification */
+.toast-popup {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #10b981;
+    color: #000;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-weight: 700;
+    z-index: 2000;
+}
+
+.toast-popup.hidden { display: none; }
+.mt-2 { margin-top: 12px; }
+.mb-3 { margin-bottom: 16px; }
