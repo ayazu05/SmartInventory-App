@@ -60,7 +60,7 @@ function resetAuthView() {
     document.getElementById('regOtpFields').style.display = 'none';
 }
 
-// OTP SEND FUNCTION (FIXED BUG)
+// OTP SEND
 async function sendOTP(mode) {
     let rawPhone = '';
 
@@ -83,7 +83,6 @@ async function sendOTP(mode) {
     }
 
     const formattedPhone = rawPhone.startsWith('+') ? rawPhone : '+91' + rawPhone.slice(-10);
-    
     setupRecaptcha();
     const appVerifier = window.recaptchaVerifier;
 
@@ -109,7 +108,7 @@ async function sendOTP(mode) {
     }
 }
 
-// OTP VERIFICATION FUNCTION
+// OTP VERIFICATION
 async function verifyOTP(mode) {
     const code = (mode === 'login') 
         ? document.getElementById('authOtpInput').value.trim() 
@@ -226,7 +225,7 @@ function hideAuthModal() {
     document.getElementById('authOverlay').classList.add('hidden');
 }
 
-// LOGOUT FUNCTION WITH CUSTOM MODAL
+// LOGOUT
 function logoutUser() {
     closeMenu();
     document.getElementById('modalLogoutConfirm').classList.remove('hidden');
@@ -243,10 +242,21 @@ function confirmLogoutProcess() {
     showToast("Signed out successfully!");
 }
 
-// STOCK OPERATIONS
+// HELPER FOR CONVERTING IMAGE TO BASE64
+function getBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+}
+
+// STOCK OPERATIONS WITH CAMERA/IMAGE SUPPORT
 async function uploadToCloudProcess(type = 'in') {
     let nameInput = (type === 'out') ? document.getElementById('outProdName') : document.getElementById('prodName');
     let qtyInput = (type === 'out') ? document.getElementById('outProdQty') : document.getElementById('prodQty');
+    let imageInput = document.getElementById('prodImageInput');
 
     const name = nameInput ? nameInput.value.trim() : '';
     const qty = qtyInput ? parseInt(qtyInput.value, 10) : 0;
@@ -257,6 +267,15 @@ async function uploadToCloudProcess(type = 'in') {
         return;
     }
 
+    let imageBase64 = null;
+    if (type === 'in' && imageInput && imageInput.files && imageInput.files[0]) {
+        try {
+            imageBase64 = await getBase64(imageInput.files[0]);
+        } catch (err) {
+            console.error("Image convert error", err);
+        }
+    }
+
     requestCancel(type === 'out' ? 'modalStockOutDetails' : 'modalDetails');
 
     const index = inventoryList.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
@@ -264,8 +283,14 @@ async function uploadToCloudProcess(type = 'in') {
     if (type === 'in') {
         if (index > -1) {
             inventoryList[index].qty += qty;
+            if (imageBase64) inventoryList[index].image = imageBase64;
         } else {
-            inventoryList.push({ name: name, qty: qty, id: 'item_' + Date.now() });
+            inventoryList.push({ 
+                name: name, 
+                qty: qty, 
+                image: imageBase64 || null, 
+                id: 'item_' + Date.now() 
+            });
         }
         showToast("Stock IN Updated!");
     } else if (type === 'out') {
@@ -296,6 +321,7 @@ async function uploadToCloudProcess(type = 'in') {
 
     if (nameInput) nameInput.value = '';
     if (qtyInput) qtyInput.value = '';
+    if (imageInput) imageInput.value = '';
 
     renderInventoryList();
 }
@@ -323,11 +349,18 @@ function renderInventoryList() {
     } else {
         inventoryList.forEach((item, index) => {
             totalQty += Number(item.qty) || 0;
+            const imgHTML = item.image 
+                ? `<img src="${item.image}" style="width:40px; height:40px; object-fit:cover; border-radius:6px; margin-right:10px;">` 
+                : `<div style="width:40px; height:40px; background:#334155; border-radius:6px; margin-right:10px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:#94a3b8;"></i></div>`;
+
             container.innerHTML += `
                 <div class="stock-card">
-                    <div class="stock-info">
-                        <h4>${item.name}</h4>
-                        <span class="qty-badge">Qty: ${item.qty}</span>
+                    <div style="display:flex; align-items:center;">
+                        ${imgHTML}
+                        <div class="stock-info">
+                            <h4>${item.name}</h4>
+                            <span class="qty-badge">Qty: ${item.qty}</span>
+                        </div>
                     </div>
                     <button class="btn-delete" onclick="deleteStockItem(${index})"><i class="fas fa-trash"></i></button>
                 </div>`;
