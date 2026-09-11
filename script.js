@@ -12,7 +12,6 @@ const firebaseConfig = {
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
 }
-
 const auth = firebase.auth();
 const db = firebase.firestore();
 
@@ -21,9 +20,10 @@ let inventoryList = [];
 let currentUserData = null;
 let activeScanMode = 'in';
 let capturedBase64Image = "";
+let selectedModifyItemIndex = null;
 
 // WHATSAPP SUPPORT NUMBER
-const WHATSAPP_NUMBER = "917011162050"; 
+const WHATSAPP_NUMBER = "917011162050";
 
 document.addEventListener("DOMContentLoaded", () => {
     setTimeout(forceHideSplash, 800);
@@ -44,6 +44,17 @@ function setupRecaptcha() {
             'size': 'invisible',
             'callback': (response) => {}
         });
+    }
+}
+
+// TOAST NOTIFICATION HELPERS
+function showToast(msg) {
+    const popup = document.getElementById('successPopUp');
+    const msgEl = document.getElementById('popUpMessage');
+    if (popup && msgEl) {
+        msgEl.innerText = msg;
+        popup.classList.remove('hidden');
+        setTimeout(() => { popup.classList.add('hidden'); }, 2000);
     }
 }
 
@@ -95,9 +106,7 @@ function resetAuthView() {
 
 // AUTHENTICATION & OTP
 async function sendOTP(mode) {
-    let rawPhone = (mode === 'login') 
-        ? document.getElementById('authPhoneInput').value.trim()
-        : document.getElementById('regPhoneInput').value.trim();
+    let rawPhone = (mode === 'login') ? document.getElementById('authPhoneInput').value.trim() : document.getElementById('regPhoneInput').value.trim();
 
     if (mode === 'register') {
         const name = document.getElementById('regNameInput').value.trim();
@@ -107,19 +116,15 @@ async function sendOTP(mode) {
             return;
         }
     }
-
     if (!rawPhone || rawPhone.length < 10) {
         alert("Enter a valid 10-digit number.");
         return;
     }
-
     const formattedPhone = rawPhone.startsWith('+') ? rawPhone : '+91' + rawPhone.slice(-10);
     setupRecaptcha();
-
     try {
         confirmationResultObj = await auth.signInWithPhoneNumber(formattedPhone, window.recaptchaVerifier);
         showToast("OTP Sent to " + formattedPhone);
-
         if (mode === 'login') {
             document.getElementById('authPhoneSubView').style.display = 'none';
             document.getElementById('authOtpSubView').style.display = 'block';
@@ -133,19 +138,15 @@ async function sendOTP(mode) {
 }
 
 async function verifyOTP(mode) {
-    const code = (mode === 'login') 
-        ? document.getElementById('authOtpInput').value.trim() 
-        : document.getElementById('regOtpInput').value.trim();
+    const code = (mode === 'login') ? document.getElementById('authOtpInput').value.trim() : document.getElementById('regOtpInput').value.trim();
 
     if (!code || code.length < 6) {
         alert("Enter 6-digit OTP.");
         return;
     }
-
     try {
         const result = await confirmationResultObj.confirm(code);
         const phone = result.user.phoneNumber;
-
         if (mode === 'login') {
             await loginExistingUser(phone);
         } else {
@@ -221,6 +222,55 @@ function checkUserAuthentication() {
 function showAuthModal() { document.getElementById('authOverlay').classList.remove('hidden'); switchToLogin(); }
 function hideAuthModal() { document.getElementById('authOverlay').classList.add('hidden'); }
 
+// NAVIGATION & TAB SWITCHING
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+
+    if (tabName === 'stocks') {
+        document.getElementById('tabStocks').classList.add('active');
+    } else if (tabName === 'settings') {
+        document.getElementById('tabSettings').classList.add('active');
+    } else if (tabName === 'profile') {
+        document.getElementById('tabProfile').classList.add('active');
+    }
+}
+
+function setupEventListeners() {
+    const btnOpen = document.getElementById('btnOpenMenu');
+    const btnClose = document.getElementById('btnCloseMenu');
+    const backdrop = document.getElementById('drawerBackdrop');
+
+    if (btnOpen) btnOpen.addEventListener('click', openMenu);
+    if (btnClose) btnClose.addEventListener('click', closeMenu);
+    if (backdrop) backdrop.addEventListener('click', closeMenu);
+}
+
+function openMenu() {
+    document.getElementById('menuDrawer').classList.add('open');
+    document.getElementById('drawerBackdrop').classList.add('show');
+}
+
+function closeMenu() {
+    document.getElementById('menuDrawer').classList.remove('open');
+    document.getElementById('drawerBackdrop').classList.remove('show');
+}
+
+function logoutUser() {
+    document.getElementById('modalLogoutConfirm').classList.remove('hidden');
+}
+
+function requestCancel(modalId) {
+    document.getElementById(modalId).classList.add('hidden');
+}
+
+function confirmLogoutProcess() {
+    localStorage.removeItem('userPhone');
+    localStorage.removeItem('userData');
+    auth.signOut();
+    location.reload();
+}
+
 // SCAN CAMERA & MODAL POPUP
 function openScanPage(mode) {
     activeScanMode = mode;
@@ -249,7 +299,6 @@ function handleImageSelection(event) {
 
     const img = new Image();
     const reader = new FileReader();
-
     reader.onload = (e) => {
         img.src = e.target.result;
         img.onload = () => {
@@ -258,10 +307,8 @@ function handleImageSelection(event) {
             const scaleSize = MAX_WIDTH / img.width;
             canvas.width = MAX_WIDTH;
             canvas.height = img.height * scaleSize;
-
             const ctx = canvas.getContext('2d');
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            
             capturedBase64Image = canvas.toDataURL('image/jpeg', 0.6);
             openCapturedPopupModal();
         };
@@ -276,7 +323,6 @@ function openCapturedPopupModal() {
 
     const preview = document.getElementById('previewCapturedImg');
     preview.src = capturedBase64Image;
-
     document.getElementById('modalPageTitle').innerText = (activeScanMode === 'in') ? "Confirm Stock IN" : "Confirm Stock OUT";
     processImageWithAI();
 }
@@ -289,7 +335,7 @@ function resetCameraScan() {
     document.getElementById('galleryFileInput').value = '';
 }
 
-// MANUAL INVENTORY SELECTION DROPDOWN (Stock IN & OUT Dono me visible)
+// MANUAL INVENTORY SELECTION DROPDOWN
 function populateManualSelectDropdown() {
     const select = document.getElementById('scanItemSelect');
     select.innerHTML = '<option value="">-- Choose Existing Item Manually --</option>';
@@ -316,20 +362,13 @@ function processImageWithAI() {
 
     loader.classList.remove('hidden');
     formCard.style.opacity = '0.4';
-
     populateManualSelectDropdown();
-
-    statusText.innerText = (activeScanMode === 'out') 
-        ? "AI Searching & Matching Inventory..." 
-        : "AI Processing Item Image...";
-
+    statusText.innerText = (activeScanMode === 'out') ? "AI Searching & Matching Inventory..." : "AI Processing Item Image...";
     setTimeout(() => {
         loader.classList.add('hidden');
         formCard.style.opacity = '1';
-
         if (activeScanMode === 'out') {
             const matchedItem = inventoryList.find(item => item.image);
-
             if (matchedItem) {
                 document.getElementById('scanItemName').value = matchedItem.name;
                 document.getElementById('scanItemSelect').value = matchedItem.name;
@@ -359,37 +398,21 @@ async function confirmScanSubmit() {
     const phone = localStorage.getItem('userPhone');
 
     const qty = Number(qtyInput);
-
-    if (!nameInput) {
-        alert("Please enter or select Item Name.");
-        return;
-    }
-    if (isNaN(qty) || qty <= 0) {
-        alert("Please enter a valid Quantity.");
-        return;
-    }
-    if (!phone) {
-        alert("Session expired, please login again.");
-        return;
-    }
+    if (!nameInput) { alert("Please enter or select Item Name."); return; }
+    if (isNaN(qty) || qty <= 0) { alert("Please enter a valid Quantity."); return; }
+    if (!phone) { alert("Session expired, please login again."); return; }
 
     const submitBtn = document.getElementById('btnSaveScanResult');
     submitBtn.innerText = "Saving...";
     submitBtn.disabled = true;
 
     const index = inventoryList.findIndex(i => i.name.toLowerCase() === nameInput.toLowerCase());
-
     if (activeScanMode === 'in') {
         if (index > -1) {
             inventoryList[index].qty = Number(inventoryList[index].qty) + qty;
             if (capturedBase64Image) inventoryList[index].image = capturedBase64Image;
         } else {
-            inventoryList.push({
-                name: String(nameInput),
-                qty: Number(qty),
-                image: String(capturedBase64Image || ''),
-                id: 'item_' + Date.now()
-            });
+            inventoryList.push({ name: String(nameInput), qty: Number(qty), image: String(capturedBase64Image || ''), id: 'item_' + Date.now() });
         }
     } else {
         if (index > -1) {
@@ -411,12 +434,7 @@ async function confirmScanSubmit() {
 
     try {
         const cleanPayload = JSON.parse(JSON.stringify(inventoryList));
-
-        await db.collection('inventories').doc(phone).set({
-            items: cleanPayload,
-            lastUpdated: new Date().toISOString()
-        }, { merge: true });
-
+        await db.collection('inventories').doc(phone).set({ items: cleanPayload, lastUpdated: new Date().toISOString() }, { merge: true });
         renderInventoryList();
         closeScanPage();
         showToast(activeScanMode === 'in' ? "Stock IN Saved!" : "Stock OUT Saved!");
@@ -427,6 +445,7 @@ async function confirmScanSubmit() {
     }
 }
 
+// RENDER INVENTORY LIST (WITH EDIT & DELETE BUTTONS)
 function renderInventoryList() {
     const container = document.getElementById('stockListContainer');
     if (!container) return;
@@ -439,11 +458,8 @@ function renderInventoryList() {
         inventoryList.forEach((item, index) => {
             const itemQty = Number(item.qty) || 0;
             totalQty += itemQty;
-
-            const imgHTML = item.image 
-                ? `<img src="${item.image}" style="width:44px; height:44px; object-fit:cover; border-radius:6px; margin-right:12px;">` 
-                : `<div style="width:44px; height:44px; background:var(--border-color); border-radius:6px; margin-right:12px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:var(--subtext-color);"></i></div>`;
-
+            const imgHTML = item.image ? `<img src="${item.image}" style="width:44px; height:44px; object-fit:cover; border-radius:6px; margin-right:12px;">` : `<div style="width:44px; height:44px; background:var(--border-color); border-radius:6px; margin-right:12px; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:var(--subtext-color);"></i></div>`;
+            
             container.innerHTML += `
                 <div class="stock-card">
                     <div style="display:flex; align-items:center;">
@@ -453,13 +469,77 @@ function renderInventoryList() {
                             <span class="qty-badge">Qty: ${itemQty}</span>
                         </div>
                     </div>
-                    <button class="btn-delete" onclick="deleteStockItem(${index})"><i class="fas fa-trash"></i></button>
+                    <div style="display:flex; align-items:center;">
+                        <button class="btn-edit-qty" onclick="openModifyQtyModal(${index})" title="Modify Quantity">
+                            <i class="fas fa-pen-to-square"></i>
+                        </button>
+                        <button class="btn-delete" onclick="deleteStockItem(${index})" title="Delete Item">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>`;
         });
     }
-
     document.getElementById('statTotalItems').innerText = inventoryList.length;
     document.getElementById('statTotalQty').innerText = totalQty;
+}
+
+// ITEM QUANTITY MODIFY FUNCTIONS
+function openModifyQtyModal(index) {
+    selectedModifyItemIndex = index;
+    const item = inventoryList[index];
+    if (!item) return;
+
+    document.getElementById('modifyItemNameDisplay').innerText = item.name;
+    document.getElementById('modifyQtyVal').value = item.qty;
+    document.getElementById('modifyQtyModal').classList.remove('hidden');
+}
+
+function closeModifyQtyModal() {
+    document.getElementById('modifyQtyModal').classList.add('hidden');
+    selectedModifyItemIndex = null;
+}
+
+function stepModifyQty(change) {
+    const qtyInput = document.getElementById('modifyQtyVal');
+    if (qtyInput) {
+        let currentVal = parseInt(qtyInput.value) || 0;
+        currentVal += change;
+        if (currentVal < 0) currentVal = 0;
+        qtyInput.value = currentVal;
+    }
+}
+
+async function saveModifiedQuantity() {
+    if (selectedModifyItemIndex === null) return;
+    
+    const newQty = parseInt(document.getElementById('modifyQtyVal').value) || 0;
+    const phone = localStorage.getItem('userPhone');
+
+    if (!phone) {
+        alert("Session expired. Please log in again.");
+        return;
+    }
+
+    if (newQty <= 0) {
+        if (confirm("Quantity is set to 0. Remove this item from inventory?")) {
+            inventoryList.splice(selectedModifyItemIndex, 1);
+        } else {
+            return;
+        }
+    } else {
+        inventoryList[selectedModifyItemIndex].qty = newQty;
+    }
+
+    try {
+        const cleanPayload = JSON.parse(JSON.stringify(inventoryList));
+        await db.collection('inventories').doc(phone).set({ items: cleanPayload, lastUpdated: new Date().toISOString() }, { merge: true });
+        renderInventoryList();
+        closeModifyQtyModal();
+        showToast("Quantity Updated!");
+    } catch (err) {
+        alert("Failed to update quantity: " + err.message);
+    }
 }
 
 function deleteStockItem(index) {
@@ -490,101 +570,38 @@ function updateUserUI(userData) {
     document.getElementById('profPhone').value = userData.phone || '';
 }
 
-function toggleProfileEdit(isEditing) {
-    const nameInput = document.getElementById('profName');
-    const farmInput = document.getElementById('profFarm');
-    const editBtn = document.getElementById('btnEditProfile');
-    const actionBtns = document.getElementById('profileEditActions');
-
-    if (isEditing) {
-        nameInput.removeAttribute('disabled');
-        farmInput.removeAttribute('disabled');
-        nameInput.focus();
-        editBtn.style.display = 'none';
-        actionBtns.classList.remove('hidden');
+function toggleProfileEdit(enable) {
+    document.getElementById('profName').disabled = !enable;
+    document.getElementById('profFarm').disabled = !enable;
+    if (enable) {
+        document.getElementById('profileEditActions').classList.remove('hidden');
+        document.getElementById('btnEditProfile').style.display = 'none';
     } else {
-        nameInput.setAttribute('disabled', 'true');
-        farmInput.setAttribute('disabled', 'true');
-        editBtn.style.display = 'inline-block';
-        actionBtns.classList.add('hidden');
-
-        if (currentUserData) {
-            updateUserUI(currentUserData);
-        }
+        document.getElementById('profileEditActions').classList.add('hidden');
+        document.getElementById('btnEditProfile').style.display = 'inline-block';
+        updateUserUI(currentUserData);
     }
 }
 
 async function saveProfileChanges() {
-    const newName = document.getElementById('profName').value.trim();
-    const newFarm = document.getElementById('profFarm').value.trim();
+    const name = document.getElementById('profName').value.trim();
+    const farm = document.getElementById('profFarm').value.trim();
     const phone = localStorage.getItem('userPhone');
 
-    if (!newName || !newFarm) {
-        alert("Name and Company/Farm Name cannot be empty.");
-        return;
-    }
-
-    if (!phone) {
-        alert("Session expired, please login again.");
+    if (!name || !farm) {
+        alert("Name and Farm Name cannot be empty.");
         return;
     }
 
     try {
-        await db.collection('users').doc(phone).set({
-            name: newName,
-            farm: newFarm
-        }, { merge: true });
-
-        currentUserData = { ...currentUserData, name: newName, farm: newFarm };
+        currentUserData.name = name;
+        currentUserData.farm = farm;
+        await db.collection('users').doc(phone).update({ name, farm });
         localStorage.setItem('userData', JSON.stringify(currentUserData));
-
         updateUserUI(currentUserData);
         toggleProfileEdit(false);
-        showToast("Profile Updated Successfully!");
-
-    } catch (error) {
-        alert("Failed to update profile: " + error.message);
+        showToast("Profile Updated!");
+    } catch (err) {
+        alert("Failed to update profile: " + err.message);
     }
-}
-
-function showToast(msg) {
-    const toast = document.getElementById('successPopUp');
-    document.getElementById('popUpMessage').innerText = msg;
-    toast.classList.remove('hidden');
-    setTimeout(() => toast.classList.add('hidden'), 3000);
-}
-
-function requestCancel(id) { document.getElementById(id).classList.add('hidden'); }
-function switchTab(tab) {
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
-}
-
-function closeMenu() {
-    document.getElementById('menuDrawer').classList.remove('open');
-    document.getElementById('drawerBackdrop').classList.remove('open');
-}
-
-function logoutUser() {
-    closeMenu();
-    document.getElementById('modalLogoutConfirm').classList.remove('hidden');
-}
-
-function confirmLogoutProcess() {
-    requestCancel('modalLogoutConfirm');
-    auth.signOut();
-    localStorage.clear();
-    inventoryList = [];
-    currentUserData = null;
-    renderInventoryList();
-    showAuthModal();
-    showToast("Signed out successfully!");
-}
-
-function setupEventListeners() {
-    document.getElementById('btnOpenMenu').onclick = () => {
-        document.getElementById('menuDrawer').classList.add('open');
-        document.getElementById('drawerBackdrop').classList.add('open');
-    };
-    document.getElementById('btnCloseMenu').onclick = closeMenu;
 }
