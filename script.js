@@ -19,7 +19,6 @@ const db = firebase.firestore();
 let confirmationResultObj = null;
 let inventoryList = [];
 let currentUserData = null;
-let tempVerifiedPhone = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     setTimeout(forceHideSplash, 800);
@@ -40,9 +39,42 @@ function setupRecaptcha() {
     });
 }
 
-// 1. Firebase Mobile OTP Flow
-async function sendOTP() {
-    const rawPhone = document.getElementById('authPhoneInput').value.trim();
+// SCREEN SWITCHING FUNCTIONS (STRICTLY ONE AT A TIME)
+function switchToSignUp() {
+    document.getElementById('authLoginCard').style.display = 'none';
+    document.getElementById('authSignUpCard').style.display = 'block';
+}
+
+function switchToLogin() {
+    document.getElementById('authSignUpCard').style.display = 'none';
+    document.getElementById('authLoginCard').style.display = 'block';
+    resetAuthView();
+}
+
+function resetAuthView() {
+    document.getElementById('authPhoneSubView').style.display = 'block';
+    document.getElementById('authOtpSubView').style.display = 'none';
+    document.getElementById('regFormFields').style.display = 'block';
+    document.getElementById('regOtpFields').style.display = 'none';
+}
+
+// Unified OTP Handler
+async function sendOTP(mode) {
+    let rawPhone = '';
+
+    if (mode === 'login') {
+        rawPhone = document.getElementById('authPhoneInput').value.trim();
+    } else {
+        const name = document.getElementById('regNameInput').value.trim();
+        const farm = document.getElementById('regFarmInput').value.trim();
+        rawPhone = document.getElementById('regPhoneInput').value.trim();
+
+        if (!name || !farm) {
+            alert("Please enter your Name and Farm/Business Name first.");
+            return;
+        }
+    }
+
     if (!rawPhone || rawPhone.length < 10) {
         alert("Please enter a valid 10-digit mobile number.");
         return;
@@ -54,8 +86,14 @@ async function sendOTP() {
     try {
         confirmationResultObj = await auth.signInWithPhoneNumber(formattedPhone, appVerifier);
         showToast("OTP Sent to " + formattedPhone);
-        document.getElementById('authPhoneView').classList.add('hidden');
-        document.getElementById('authOtpView').classList.remove('hidden');
+
+        if (mode === 'login') {
+            document.getElementById('authPhoneSubView').style.display = 'none';
+            document.getElementById('authOtpSubView').style.display = 'block';
+        } else {
+            document.getElementById('regFormFields').style.display = 'none';
+            document.getElementById('regOtpFields').style.display = 'block';
+        }
     } catch (error) {
         console.error("OTP Send Error:", error);
         alert("Failed to send OTP: " + error.message);
@@ -63,8 +101,11 @@ async function sendOTP() {
     }
 }
 
-async function verifyOTP() {
-    const code = document.getElementById('authOtpInput').value.trim();
+async function verifyOTP(mode) {
+    const code = (mode === 'login') 
+        ? document.getElementById('authOtpInput').value.trim() 
+        : document.getElementById('regOtpInput').value.trim();
+
     if (!code || code.length < 6) {
         alert("Please enter the 6-digit OTP code.");
         return;
@@ -72,66 +113,59 @@ async function verifyOTP() {
 
     try {
         const result = await confirmationResultObj.confirm(code);
-        tempVerifiedPhone = result.user.phoneNumber;
+        const phone = result.user.phoneNumber;
 
-        await checkUserRegistration(tempVerifiedPhone);
+        if (mode === 'login') {
+            await loginExistingUser(phone);
+        } else {
+            await registerNewUser(phone);
+        }
     } catch (error) {
         console.error("OTP Verification Error:", error);
         alert("Invalid OTP Code. Please try again.");
     }
 }
 
-// 2. Check If User Is Registered Or Needs Registration
-async function checkUserRegistration(phone) {
+async function loginExistingUser(phone) {
     try {
         let userDoc = await db.collection('users').doc(phone).get();
-        
         if (!userDoc.exists) {
             const rawDigits = phone.replace('+91', '');
             userDoc = await db.collection('users').doc(rawDigits).get();
         }
 
         if (userDoc.exists) {
-            // User Exists -> Direct Login
-            const userData = userDoc.data();
-            finishLoginSuccess(phone, userData);
+            finishAuth(phone, userDoc.data());
         } else {
-            // New User -> Open Registration Form
-            document.getElementById('authOtpView').classList.add('hidden');
-            document.getElementById('authRegisterView').classList.remove('hidden');
+            alert("Account not found! Switching to Sign Up screen...");
+            switchToSignUp();
         }
     } catch (e) {
-        console.error("Registration Check Error:", e);
-        alert("Server error during login check.");
+        alert("Login Error: " + e.message);
     }
 }
 
-async function completeRegistration() {
+async function registerNewUser(phone) {
     const name = document.getElementById('regNameInput').value.trim();
     const farm = document.getElementById('regFarmInput').value.trim();
 
-    if (!name || !farm) {
-        alert("Please enter both Name and Farm/Business name.");
-        return;
-    }
-
-    const newUserData = {
-        phone: tempVerifiedPhone,
+    const userData = {
+        phone: phone,
         name: name,
         farm: farm,
         createdAt: new Date().toISOString()
     };
 
     try {
-        await db.collection('users').doc(tempVerifiedPhone).set(newUserData);
+        await db.collection('users').doc(phone).set(userData);
         showToast("Registration Successful!");
-        finishLoginSuccess(tempVerifiedPhone, newUserData);
+        finishAuth(phone, userData);
     } catch (e) {
-        alert("Failed to complete registration: " + e.message);
+        alert("Registration failed: " + e.message);
     }
 }
 
-function finishLoginSuccess(phone, userData) {
+function finishAuth(phone, userData) {
     currentUserData = userData;
     localStorage.setItem('userPhone', phone);
     localStorage.setItem('userData', JSON.stringify(userData));
@@ -145,7 +179,6 @@ async function loadCloudInventory(phone) {
     inventoryList = [];
     try {
         let doc = await db.collection('inventories').doc(phone).get();
-        
         if (!doc.exists) {
             const rawDigits = phone.replace('+91', '');
             doc = await db.collection('inventories').doc(rawDigits).get();
@@ -177,36 +210,31 @@ function checkUserAuthentication() {
 
 function showAuthModal() {
     document.getElementById('authOverlay').classList.remove('hidden');
-    resetAuthView();
+    switchToLogin();
 }
 
 function hideAuthModal() {
     document.getElementById('authOverlay').classList.add('hidden');
 }
 
-function resetAuthView() {
-    document.getElementById('authPhoneView').classList.remove('hidden');
-    document.getElementById('authOtpView').classList.add('hidden');
-    document.getElementById('authRegisterView').classList.add('hidden');
-}
-
-// LOGOUT WITH CONFIRMATION POPUP
+// LOGOUT FUNCTION WITH CUSTOM MODAL
 function logoutUser() {
-    const confirmLogout = window.confirm("Are you sure you want to sign out from your account?");
-    
-    if (confirmLogout) {
-        auth.signOut();
-        localStorage.clear();
-        inventoryList = [];
-        currentUserData = null;
-        renderInventoryList();
-        showAuthModal();
-        closeMenu();
-        showToast("Signed out successfully!");
-    }
+    closeMenu();
+    document.getElementById('modalLogoutConfirm').classList.remove('hidden');
 }
 
-// 3. Stock Actions (IN / OUT)
+function confirmLogoutProcess() {
+    requestCancel('modalLogoutConfirm');
+    auth.signOut();
+    localStorage.clear();
+    inventoryList = [];
+    currentUserData = null;
+    renderInventoryList();
+    showAuthModal();
+    showToast("Signed out successfully!");
+}
+
+// STOCK OPERATIONS
 async function uploadToCloudProcess(type = 'in') {
     let nameInput = (type === 'out') ? document.getElementById('outProdName') : document.getElementById('prodName');
     let qtyInput = (type === 'out') ? document.getElementById('outProdQty') : document.getElementById('prodQty');
