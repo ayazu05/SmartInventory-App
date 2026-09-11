@@ -1,274 +1,306 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ai Stock Manager</title>
-    <!-- Modern Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+// Global App State
+let inventoryList = [];
+let currentUserData = null;
+let db = null;
+
+// Force Hide Loading Screen Guard
+function forceHideSplash() {
+    const splash = document.getElementById('appSplashLoader');
+    if (splash) {
+        splash.style.display = 'none';
+        splash.classList.add('hidden');
+    }
+}
+
+// App Entry Point
+document.addEventListener("DOMContentLoaded", () => {
+    // Fail-safe loader timeout (max 1 second wait)
+    setTimeout(forceHideSplash, 1000);
+
+    initFirebaseSafely();
+    loadLocalInventory();
+    setupNetworkListeners();
+    setupEventListeners();
+});
+
+// 1. Firebase Safe Initializer
+function initFirebaseSafely() {
+    try {
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+            db = firebase.firestore();
+            
+            db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+                console.warn("Firestore Persistence Warning:", err.code);
+            });
+
+            fetchCloudInventory();
+        } else {
+            console.warn("Firebase not detected, operating in Local Mode.");
+        }
+    } catch (err) {
+        console.error("Firebase init bypass:", err);
+    } finally {
+        forceHideSplash();
+    }
+}
+
+// 2. Offline & Network Recovery Listener
+function setupNetworkListeners() {
+    window.addEventListener('online', () => {
+        showToast("Internet Back Online!");
+        updateNetworkStatusUI(true);
+        fetchCloudInventory();
+    });
+
+    window.addEventListener('offline', () => {
+        showToast("Offline Mode Active");
+        updateNetworkStatusUI(false);
+    });
+}
+
+function updateNetworkStatusUI(isOnline) {
+    const statusPill = document.querySelector('.status-pill');
+    if (statusPill) {
+        statusPill.className = isOnline ? "status-pill green" : "status-pill red";
+        statusPill.innerHTML = isOnline 
+            ? `<span class="dot"></span> Live Cloud` 
+            : `<span class="dot"></span> Offline`;
+    }
+}
+
+// 3. Local Cache Operations
+function loadLocalInventory() {
+    try {
+        const saved = localStorage.getItem('localInventoryData');
+        if (saved) {
+            inventoryList = JSON.parse(saved);
+        }
+    } catch (e) {
+        inventoryList = [];
+    }
+    renderInventoryList();
+}
+
+function saveLocalInventory() {
+    localStorage.setItem('localInventoryData', JSON.stringify(inventoryList));
+    renderInventoryList();
+}
+
+// 4. Cloud Data Sync (Prevents overwriting previous items)
+async function fetchCloudInventory() {
+    const phone = localStorage.getItem('userPhone') || currentUserData?.phone;
+    if (!db || !phone) {
+        forceHideSplash();
+        return;
+    }
+
+    try {
+        const doc = await db.collection('inventories').doc(phone).get();
+        if (doc.exists && doc.data().items) {
+            const cloudItems = doc.data().items || [];
+            
+            // Map-based merging to maintain unique items
+            const itemMap = new Map();
+            inventoryList.forEach(item => itemMap.set(item.id || item.name.toLowerCase(), item));
+            cloudItems.forEach(item => itemMap.set(item.id || item.name.toLowerCase(), item));
+            
+            inventoryList = Array.from(itemMap.values());
+            saveLocalInventory();
+        }
+    } catch (err) {
+        console.warn("Cloud Sync Warning:", err);
+    } finally {
+        forceHideSplash();
+    }
+}
+
+// 5. Stock Addition (Fixes single-item replace issue)
+async function uploadToCloudProcess() {
+    const nameInput = document.getElementById('prodName');
+    const qtyInput = document.getElementById('prodQty');
     
-    <!-- Main Stylesheet -->
-    <link rel="stylesheet" href="style.css">
+    const name = nameInput ? nameInput.value.trim() : '';
+    const qty = qtyInput ? parseInt(qtyInput.value, 10) : 0;
 
-    <!-- Firebase Compat SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-</head>
-<body class="theme-dark">
+    if (!name || isNaN(qty) || qty <= 0) {
+        alert("Please enter a valid Product Name and Quantity.");
+        return;
+    }
 
-    <!-- Splash Screen -->
-    <div id="appSplashLoader" class="splash-screen">
-        <div class="splash-content">
-            <img src="Logo.png" alt="Logo" class="splash-logo-img" onerror="this.style.display='none'">
-            <h2>Ai Stock Manager</h2>
-            <div class="splash-spinner"></div>
-        </div>
-    </div>
+    requestCancel('modalDetails');
 
-    <!-- Header -->
-    <header class="app-header">
-        <div class="header-left">
-            <button id="btnOpenMenu" class="icon-btn" title="Open Menu"><i class="fas fa-bars-staggered"></i></button>
-            <div class="brand">
-                <img src="Logo.png" alt="Logo" class="header-logo-img" onerror="this.style.display='none'">
-                <span>Ai Stock Manager</span>
-            </div>
-        </div>
-        <div class="header-right">
-            <div class="status-pill green">
-                <span class="dot"></span> Live Cloud
-            </div>
-            <button class="avatar-btn" onclick="switchTab('profile')" title="Profile">
-                <i class="fas fa-user-gear"></i>
-            </button>
-        </div>
-    </header>
+    // Duplicate check
+    const existingIndex = inventoryList.findIndex(item => item.name.toLowerCase() === name.toLowerCase());
 
-    <!-- Navigation Drawer -->
-    <div id="drawerBackdrop" class="drawer-backdrop"></div>
-    <aside id="menuDrawer" class="menu-drawer pos-left">
-        <div class="drawer-header">
-            <div class="drawer-brand">
-                <i class="fas fa-layer-group"></i> Navigation
-            </div>
-            <button id="btnCloseMenu" class="icon-btn"><i class="fas fa-xmark"></i></button>
-        </div>
-        <div class="drawer-profile-preview">
-            <div class="preview-avatar"><i class="fas fa-user"></i></div>
-            <div class="preview-info">
-                <h4 id="menuUserName">User Name</h4>
-                <p id="menuUserFarm">Farm Name</p>
-            </div>
-        </div>
-        <nav class="drawer-nav">
-            <button class="nav-item active" onclick="switchTab('stocks'); closeMenu();"><i class="fas fa-boxes-stacked"></i> Dashboard & Stocks</button>
-            <button class="nav-item stock-in-item" onclick="handleStockIn(); closeMenu();"><i class="fas fa-arrow-down-left-and-arrow-up-right-to-inside"></i> Quick Stock IN</button>
-            <button class="nav-item stock-out-item" onclick="handleStockOut(); closeMenu();"><i class="fas fa-arrow-up-right-from-square"></i> Quick Stock OUT</button>
-            <div class="nav-divider"></div>
-            <button class="nav-item" onclick="switchTab('profile'); closeMenu();"><i class="fas fa-id-card"></i> User Profile</button>
-            <button class="nav-item" onclick="switchTab('settings'); closeMenu();"><i class="fas fa-sliders"></i> App Settings</button>
-            <button class="nav-item logout-btn" onclick="logoutUser()"><i class="fas fa-power-off"></i> Sign Out</button>
-        </nav>
-    </aside>
+    if (existingIndex > -1) {
+        // Increment Qty if item exists
+        inventoryList[existingIndex].qty += qty;
+        inventoryList[existingIndex].lastUpdated = new Date().toISOString();
+    } else {
+        // Push NEW unique item
+        const newItem = {
+            id: 'item_' + Date.now(),
+            name: name,
+            qty: qty,
+            lastUpdated: new Date().toISOString()
+        };
+        inventoryList.push(newItem);
+    }
 
-    <!-- Main Container -->
-    <main class="main-content">
-        <!-- TAB 1: STOCKS -->
-        <section id="tabStocks" class="tab-content active">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon bg-blue"><i class="fas fa-box-archive"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Total Items</span>
-                        <h3 id="statTotalItems">0</h3>
-                    </div>
+    saveLocalInventory();
+
+    // Sync Cloud
+    const phone = localStorage.getItem('userPhone') || currentUserData?.phone;
+    if (db && phone) {
+        try {
+            await db.collection('inventories').doc(phone).set({
+                items: inventoryList,
+                lastUpdated: new Date().toISOString()
+            }, { merge: true });
+            showToast("Saved to Cloud!");
+        } catch (error) {
+            console.error("Cloud Save Failed:", error);
+            showToast("Saved Locally");
+        }
+    } else {
+        showToast("Saved Locally");
+    }
+
+    if (nameInput) nameInput.value = '';
+    if (qtyInput) qtyInput.value = '';
+}
+
+// 6. UI Renders
+function renderInventoryList() {
+    const container = document.getElementById('stockListContainer');
+    const totalItemsEl = document.getElementById('statTotalItems');
+    const totalQtyEl = document.getElementById('statTotalQty');
+
+    if (!container) return;
+
+    container.innerHTML = '';
+    let totalQty = 0;
+
+    if (inventoryList.length === 0) {
+        container.innerHTML = `<div class="empty-state"><p>No stock items available.</p></div>`;
+    } else {
+        inventoryList.forEach((item, index) => {
+            totalQty += Number(item.qty) || 0;
+            const card = document.createElement('div');
+            card.className = 'stock-card';
+            card.innerHTML = `
+                <div class="stock-info">
+                    <h4>${escapeHtml(item.name)}</h4>
+                    <span class="qty-badge">Qty: ${item.qty}</span>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-icon bg-emerald"><i class="fas fa-cubes-stacked"></i></div>
-                    <div class="stat-info">
-                        <span class="stat-label">Total Stock Qty</span>
-                        <h3 id="statTotalQty">0</h3>
-                    </div>
-                </div>
-            </div>
-
-            <div class="action-bar">
-                <button class="btn btn-stock-in" onclick="handleStockIn()">
-                    <i class="fas fa-circle-plus"></i> Stock IN
+                <button class="btn-delete" onclick="deleteStockItem(${index})" title="Delete Item">
+                    <i class="fas fa-trash"></i>
                 </button>
-                <button class="btn btn-stock-out" onclick="handleStockOut()">
-                    <i class="fas fa-circle-minus"></i> Stock OUT
-                </button>
-            </div>
+            `;
+            container.appendChild(card);
+        });
+    }
 
-            <div class="search-bar-card">
-                <i class="fas fa-magnifying-glass search-icon"></i>
-                <input type="text" id="searchInput" placeholder="Search item name..." oninput="filterInventory()">
-            </div>
+    if (totalItemsEl) totalItemsEl.innerText = inventoryList.length;
+    if (totalQtyEl) totalQtyEl.innerText = totalQty;
+}
 
-            <div class="section-title-bar">
-                <h3><i class="fas fa-list-check"></i> Inventory Records</h3>
-            </div>
-            <div id="stockListContainer" class="stock-list"></div>
-        </section>
+function deleteStockItem(index) {
+    if (confirm("Are you sure you want to delete this item?")) {
+        inventoryList.splice(index, 1);
+        saveLocalInventory();
+        
+        const phone = localStorage.getItem('userPhone') || currentUserData?.phone;
+        if (db && phone) {
+            db.collection('inventories').doc(phone).set({
+                items: inventoryList,
+                lastUpdated: new Date().toISOString()
+            }, { merge: true });
+        }
+        showToast("Item deleted");
+    }
+}
 
-        <!-- TAB 2: PROFILE -->
-        <section id="tabProfile" class="tab-content">
-            <div class="card profile-card">
-                <div class="profile-header-bar">
-                    <button class="icon-btn" onclick="switchTab('stocks')" title="Back">
-                        <i class="fas fa-arrow-left"></i>
-                    </button>
-                    <h2>User Profile</h2>
-                    <button id="btnProfileEdit" class="btn btn-secondary btn-sm" onclick="toggleProfileEdit(true)">
-                        <i class="fas fa-user-pen"></i> Edit
-                    </button>
-                </div>
+function filterInventory() {
+    const query = document.getElementById('searchInput')?.value.toLowerCase() || '';
+    const cards = document.querySelectorAll('.stock-card');
+    cards.forEach(card => {
+        const name = card.querySelector('h4')?.innerText.toLowerCase() || '';
+        card.style.display = name.includes(query) ? 'flex' : 'none';
+    });
+}
 
-                <div class="profile-avatar-large"><i class="fas fa-user-shield"></i></div>
+// UI Handlers
+function showToast(msg) {
+    const toast = document.getElementById('successPopUp');
+    const msgEl = document.getElementById('popUpMessage');
+    if (toast && msgEl) {
+        msgEl.innerText = msg;
+        toast.classList.remove('hidden');
+        setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+}
 
-                <div class="form-grid">
-                    <div class="input-group">
-                        <label><i class="fas fa-user"></i> Full Name</label>
-                        <input type="text" id="profName" disabled>
-                    </div>
-                    <div class="input-group">
-                        <label><i class="fas fa-wheat-awn"></i> Farm / Business</label>
-                        <input type="text" id="profFarm" disabled>
-                    </div>
-                    <div class="input-group">
-                        <label><i class="fas fa-envelope"></i> Email Address</label>
-                        <input type="email" id="profEmail" disabled>
-                    </div>
-                    <div class="input-group">
-                        <label><i class="fas fa-phone"></i> Mobile Phone</label>
-                        <input type="text" id="profPhone" disabled>
-                    </div>
-                </div>
+function requestCancel(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) modal.classList.add('hidden');
+}
 
-                <div id="profileEditActions" class="edit-actions-bar hidden">
-                    <button class="btn btn-secondary" onclick="toggleProfileEdit(false)">Cancel</button>
-                    <button class="btn btn-primary" onclick="saveProfileChanges()">Save Cloud</button>
-                </div>
-            </div>
-        </section>
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+    });
+}
 
-        <!-- TAB 3: SETTINGS -->
-        <section id="tabSettings" class="tab-content">
-            <div class="card settings-card">
-                <div class="card-title"><i class="fas fa-gears"></i> Settings</div>
-                <div class="setting-item">
-                    <h4>Theme</h4>
-                    <select onchange="changeTheme(this.value)" class="modern-select">
-                        <option value="dark" selected>Dark Theme</option>
-                        <option value="light">Light Theme</option>
-                    </select>
-                </div>
-            </div>
-        </section>
-    </main>
+function setupEventListeners() {
+    const btnOpen = document.getElementById('btnOpenMenu');
+    const btnClose = document.getElementById('btnCloseMenu');
+    const drawer = document.getElementById('menuDrawer');
+    const backdrop = document.getElementById('drawerBackdrop');
 
-    <!-- Hidden Input Controls -->
-    <input type="file" id="inputCamera" accept="image/*" capture="environment" class="hidden">
-    <input type="file" id="inputFile" accept="image/*" class="hidden">
+    if (btnOpen && drawer && backdrop) {
+        btnOpen.onclick = () => {
+            drawer.classList.add('open');
+            backdrop.classList.add('open');
+        };
+    }
 
-    <!-- Auth Modal Overlay -->
-    <div id="authOverlay" class="modal-overlay hidden">
-        <div class="modal-card glassmorphism">
-            <div class="auth-header">
-                <i class="fas fa-shield-halved auth-icon"></i>
-                <h2 id="authTitle">Cloud Login</h2>
-            </div>
+    if (btnClose && drawer && backdrop) {
+        const closeFn = () => {
+            drawer.classList.remove('open');
+            backdrop.classList.remove('open');
+        };
+        btnClose.onclick = closeFn;
+        backdrop.onclick = closeFn;
+    }
+}
 
-            <div id="authLoginView" class="auth-view">
-                <div class="input-group">
-                    <label>Mobile Number</label>
-                    <input type="tel" id="loginPhone" placeholder="10-Digit Mobile Number">
-                </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="sendAuthOtp('login')">Send OTP</button>
-                <p class="auth-switch-text mt-2">New User? <span onclick="switchAuthView('register')">Create Account</span></p>
-            </div>
+function closeMenu() {
+    const drawer = document.getElementById('menuDrawer');
+    const backdrop = document.getElementById('drawerBackdrop');
+    if (drawer) drawer.classList.remove('open');
+    if (backdrop) backdrop.classList.remove('open');
+}
 
-            <div id="authRegisterView" class="auth-view hidden">
-                <div class="input-group">
-                    <label>Full Name</label>
-                    <input type="text" id="regName">
-                </div>
-                <div class="input-group">
-                    <label>Farm Name</label>
-                    <input type="text" id="regFarm">
-                </div>
-                <div class="input-group">
-                    <label>Email</label>
-                    <input type="email" id="regEmail">
-                </div>
-                <div class="input-group">
-                    <label>Phone Number</label>
-                    <input type="tel" id="regPhone">
-                </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="sendAuthOtp('register')">Register & Verify</button>
-                <p class="auth-switch-text mt-2">Already registered? <span onclick="switchAuthView('login')">Sign In</span></p>
-            </div>
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+    
+    const targetTab = document.getElementById('tab' + tabName.charAt(0).toUpperCase() + tabName.slice(1));
+    if (targetTab) targetTab.classList.add('active');
+}
 
-            <div id="authOtpView" class="auth-view hidden">
-                <div class="input-group">
-                    <input type="number" id="authOtpInput" placeholder="123456" class="otp-input">
-                </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="verifyAuthOtp()">Verify</button>
-                <button class="btn btn-secondary btn-full mt-2" onclick="cancelAuthFlow()">Back</button>
-            </div>
-        </div>
-    </div>
+function handleStockIn() {
+    const modal = document.getElementById('modalDetails');
+    if (modal) modal.classList.remove('hidden');
+}
 
-    <!-- Modals -->
-    <div id="modalSource" class="modal-overlay hidden">
-        <div class="modal-card">
-            <h3 id="sourceTitle"><i class="fas fa-camera"></i> Select Photo Source</h3>
-            <div class="source-actions">
-                <button class="btn btn-source" onclick="triggerCamera('camera')"><i class="fas fa-camera"></i> Camera</button>
-                <button class="btn btn-source" onclick="triggerCamera('gallery')"><i class="fas fa-images"></i> Gallery</button>
-            </div>
-            <button class="btn btn-secondary btn-full" onclick="requestCancel('modalSource')">Cancel</button>
-        </div>
-    </div>
+function handleStockOut() {
+    const modal = document.getElementById('modalStockOutSelect');
+    if (modal) modal.classList.remove('hidden');
+}
 
-    <div id="modalStockOutSelect" class="modal-overlay hidden">
-        <div class="modal-card">
-            <h3>Select Item</h3>
-            <div id="manualStockList" class="select-stock-container"></div>
-            <button class="btn btn-secondary btn-full mt-3" onclick="requestCancel('modalStockOutSelect')">Cancel</button>
-        </div>
-    </div>
-
-    <div id="modalDetails" class="modal-overlay hidden">
-        <div class="modal-card">
-            <h3 id="detailsModalTitle">Stock Entry Details</h3>
-            <div class="input-group">
-                <label>Product Name</label>
-                <input type="text" id="prodName">
-            </div>
-            <div class="input-group">
-                <label>Quantity</label>
-                <input type="number" id="prodQty">
-            </div>
-            <div class="modal-actions">
-                <button class="btn btn-secondary" onclick="requestCancel('modalDetails')">Cancel</button>
-                <button id="btnSubmitCloud" class="btn btn-primary" onclick="uploadToCloudProcess()">Save Item</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notifications -->
-    <div id="successPopUp" class="toast-popup hidden">
-        <i class="fas fa-circle-check"></i>
-        <span id="popUpMessage">Data Saved!</span>
-    </div>
-
-    <!-- Main JS Application -->
-    <script src="script.js" defer></script>
-</body>
-</html>
+function logoutUser() {
+    localStorage.clear();
+    location.reload();
+}
