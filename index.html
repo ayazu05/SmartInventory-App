@@ -54,8 +54,8 @@
         </div>
         <nav class="drawer-nav">
             <button class="nav-item active" onclick="switchTab('stocks'); closeMenu();"><i class="fas fa-boxes-stacked"></i> Dashboard & Stocks</button>
-            <button class="nav-item" onclick="handleStockIn(); closeMenu();"><i class="fas fa-plus"></i> Quick Stock IN</button>
-            <button class="nav-item" onclick="handleStockOut(); closeMenu();"><i class="fas fa-minus"></i> Quick Stock OUT</button>
+            <button class="nav-item" onclick="openScanPage('in'); closeMenu();"><i class="fas fa-plus"></i> Quick Stock IN</button>
+            <button class="nav-item" onclick="openScanPage('out'); closeMenu();"><i class="fas fa-minus"></i> Quick Stock OUT</button>
             <div class="nav-divider"></div>
             <button class="nav-item" onclick="switchTab('profile'); closeMenu();"><i class="fas fa-id-card"></i> Profile</button>
             <button class="nav-item logout-btn" onclick="logoutUser()"><i class="fas fa-power-off"></i> Sign Out</button>
@@ -79,8 +79,8 @@
             </div>
 
             <div class="action-bar">
-                <button class="btn btn-stock-in" onclick="handleStockIn()"><i class="fas fa-plus"></i> Stock IN</button>
-                <button class="btn btn-stock-out" onclick="handleStockOut()"><i class="fas fa-minus"></i> Stock OUT</button>
+                <button class="btn btn-stock-in" onclick="openScanPage('in')"><i class="fas fa-plus"></i> Stock IN</button>
+                <button class="btn btn-stock-out" onclick="openScanPage('out')"><i class="fas fa-minus"></i> Stock OUT</button>
             </div>
 
             <div class="search-bar-card">
@@ -102,10 +102,52 @@
         </section>
     </main>
 
+    <!-- DEDICATED FULL SCREEN CAMERA & SCAN PAGE -->
+    <div id="scanPage" class="scan-page-overlay hidden">
+        <div class="scan-header">
+            <button class="icon-btn" onclick="closeScanPage()"><i class="fas fa-arrow-left"></i></button>
+            <h3 id="scanPageTitle">Stock IN - Scan Item</h3>
+            <div style="width: 24px;"></div>
+        </div>
+
+        <div class="camera-viewport">
+            <video id="cameraVideo" autoplay playsinline></video>
+            <canvas id="cameraCanvas" style="display:none;"></canvas>
+            <div class="scan-frame"></div>
+            <img id="previewCapturedImg" class="captured-preview hidden" alt="Captured Preview">
+        </div>
+
+        <!-- AI LOADING OVERLAY -->
+        <div id="aiScanningLoader" class="ai-loader-container hidden">
+            <div class="ai-scan-line"></div>
+            <div class="ai-spinner"></div>
+            <p id="aiScanStatus">AI Scanning & Matching Inventory Images...</p>
+        </div>
+
+        <!-- FORM CONTROLS AFTER CAPTURE -->
+        <div id="scanFormCard" class="scan-form-card hidden">
+            <h4 id="detectedItemTitle">Item Details</h4>
+            <input type="text" id="scanItemName" placeholder="Item Name">
+            <input type="number" id="scanItemQty" placeholder="Quantity">
+            <div class="modal-actions mt-2">
+                <button class="btn btn-secondary" onclick="resetCameraScan()">Retake Photo</button>
+                <button class="btn btn-primary" id="btnSaveScanResult" onclick="confirmScanSubmit()">Confirm & Save</button>
+            </div>
+        </div>
+
+        <!-- BOTTOM ACTION BUTTONS -->
+        <div id="scanControls" class="scan-controls">
+            <button class="btn-capture" onclick="capturePhoto()"><i class="fas fa-camera"></i> Capture</button>
+            <div class="scan-sub-actions">
+                <label for="galleryFileInput" class="btn btn-secondary"><i class="fas fa-image"></i> Upload from Gallery</label>
+                <input type="file" id="galleryFileInput" accept="image/*" style="display:none;" onchange="handleGalleryUpload(event)">
+                <button class="btn btn-danger" onclick="closeScanPage()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <!-- AUTHENTICATION OVERLAY -->
     <div id="authOverlay" class="modal-overlay hidden">
-        
-        <!-- LOGIN CARD -->
         <div id="authLoginCard" class="modal-card">
             <div class="auth-header">
                 <h2>Account Login</h2>
@@ -135,7 +177,6 @@
             </div>
         </div>
 
-        <!-- SIGN UP CARD -->
         <div id="authSignUpCard" class="modal-card" style="display: none;">
             <div class="auth-header">
                 <h2>New User Registration</h2>
@@ -161,38 +202,6 @@
 
             <div class="auth-footer mt-2" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 12px; margin-top: 15px;">
                 <p style="font-size:0.85rem; color:#9ca3af;">Already have an account? <span onclick="switchToLogin()" style="color:#3b82f6; cursor:pointer; font-weight:bold;">Sign In</span></p>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- STOCK IN MODAL (WITH CAMERA AND FILE MANAGER UPLOAD) -->
-    <div id="modalDetails" class="modal-overlay hidden">
-        <div class="modal-card">
-            <h3>Stock IN (Add Quantity)</h3>
-            <input type="text" id="prodName" placeholder="Item Name">
-            <input type="number" id="prodQty" placeholder="Quantity to Add">
-            
-            <!-- IMAGE CAPTURE/UPLOAD OPTION -->
-            <label style="display: block; font-size: 0.8rem; color: #94a3b8; margin-top: 6px; margin-bottom: 4px;">Item Photo (Camera / Files)</label>
-            <input type="file" id="prodImageInput" accept="image/*" capture="environment" style="padding: 6px;">
-
-            <div class="modal-actions mt-2">
-                <button class="btn btn-secondary" onclick="requestCancel('modalDetails')">Cancel</button>
-                <button class="btn btn-primary" onclick="uploadToCloudProcess('in')">Save Stock IN</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- STOCK OUT MODAL -->
-    <div id="modalStockOutDetails" class="modal-overlay hidden">
-        <div class="modal-card">
-            <h3>Stock OUT (Deduct Quantity)</h3>
-            <input type="text" id="outProdName" placeholder="Item Name">
-            <input type="number" id="outProdQty" placeholder="Quantity to Deduct">
-            <div class="modal-actions mt-2">
-                <button class="btn btn-secondary" onclick="requestCancel('modalStockOutDetails')">Cancel</button>
-                <button class="btn btn-danger" onclick="uploadToCloudProcess('out')">Save Stock OUT</button>
             </div>
         </div>
     </div>
