@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ai Stock Manager</title>
-    <!-- Modern Google Fonts -->
+    <!-- Fonts & Icons -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
     <!-- Main Stylesheet -->
     <link rel="stylesheet" href="style.css">
 
-    <!-- Firebase Compat SDKs -->
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -75,7 +75,7 @@
         </nav>
     </aside>
 
-    <!-- Main Container -->
+    <!-- Main Content -->
     <main class="main-content">
         <!-- TAB 1: STOCKS -->
         <section id="tabStocks" class="tab-content active">
@@ -124,9 +124,6 @@
                         <i class="fas fa-arrow-left"></i>
                     </button>
                     <h2>User Profile</h2>
-                    <button id="btnProfileEdit" class="btn btn-secondary btn-sm" onclick="toggleProfileEdit(true)">
-                        <i class="fas fa-user-pen"></i> Edit
-                    </button>
                 </div>
 
                 <div class="profile-avatar-large"><i class="fas fa-user-shield"></i></div>
@@ -149,11 +146,6 @@
                         <input type="text" id="profPhone" disabled>
                     </div>
                 </div>
-
-                <div id="profileEditActions" class="edit-actions-bar hidden">
-                    <button class="btn btn-secondary" onclick="toggleProfileEdit(false)">Cancel</button>
-                    <button class="btn btn-primary" onclick="saveProfileChanges()">Save Cloud</button>
-                </div>
             </div>
         </section>
 
@@ -163,112 +155,81 @@
                 <div class="card-title"><i class="fas fa-gears"></i> Settings</div>
                 <div class="setting-item">
                     <h4>Theme</h4>
-                    <select onchange="changeTheme(this.value)" class="modern-select">
+                    <select class="modern-select">
                         <option value="dark" selected>Dark Theme</option>
-                        <option value="light">Light Theme</option>
                     </select>
                 </div>
             </div>
         </section>
     </main>
 
-    <!-- Hidden Input Controls -->
-    <input type="file" id="inputCamera" accept="image/*" capture="environment" class="hidden">
-    <input type="file" id="inputFile" accept="image/*" class="hidden">
-
-    <!-- Auth Modal Overlay -->
-    <div id="authOverlay" class="modal-overlay hidden">
+    <!-- AUTHENTICATION OVERLAY (FIXED BUTTON HANDLERS) -->
+    <div id="authOverlay" class="modal-overlay">
         <div class="modal-card glassmorphism">
             <div class="auth-header">
                 <i class="fas fa-shield-halved auth-icon"></i>
                 <h2 id="authTitle">Cloud Login</h2>
             </div>
 
+            <!-- Login Section -->
             <div id="authLoginView" class="auth-view">
                 <div class="input-group">
                     <label>Mobile Number</label>
-                    <input type="tel" id="loginPhone" placeholder="10-Digit Mobile Number">
+                    <input type="tel" id="loginPhone" placeholder="Enter 10-Digit Mobile Number">
                 </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="sendAuthOtp('login')">Send OTP</button>
+                <button class="btn btn-primary btn-full mt-2" onclick="processAuth('login')">Sign In / Login</button>
                 <p class="auth-switch-text mt-2">New User? <span onclick="switchAuthView('register')">Create Account</span></p>
             </div>
 
+            <!-- Register Section -->
             <div id="authRegisterView" class="auth-view hidden">
                 <div class="input-group">
                     <label>Full Name</label>
-                    <input type="text" id="regName">
+                    <input type="text" id="regName" placeholder="Enter Full Name">
                 </div>
                 <div class="input-group">
-                    <label>Farm Name</label>
-                    <input type="text" id="regFarm">
+                    <label>Farm / Business Name</label>
+                    <input type="text" id="regFarm" placeholder="Enter Farm Name">
                 </div>
                 <div class="input-group">
-                    <label>Email</label>
-                    <input type="email" id="regEmail">
+                    <label>Email Address</label>
+                    <input type="email" id="regEmail" placeholder="Enter Email Address">
                 </div>
                 <div class="input-group">
                     <label>Phone Number</label>
-                    <input type="tel" id="regPhone">
+                    <input type="tel" id="regPhone" placeholder="Enter Phone Number">
                 </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="sendAuthOtp('register')">Register & Verify</button>
+                <button class="btn btn-primary btn-full mt-2" onclick="processAuth('register')">Register & Login</button>
                 <p class="auth-switch-text mt-2">Already registered? <span onclick="switchAuthView('login')">Sign In</span></p>
-            </div>
-
-            <div id="authOtpView" class="auth-view hidden">
-                <div class="input-group">
-                    <input type="number" id="authOtpInput" placeholder="123456" class="otp-input">
-                </div>
-                <button class="btn btn-primary btn-full mt-2" onclick="verifyAuthOtp()">Verify</button>
-                <button class="btn btn-secondary btn-full mt-2" onclick="cancelAuthFlow()">Back</button>
             </div>
         </div>
     </div>
 
     <!-- Modals -->
-    <div id="modalSource" class="modal-overlay hidden">
-        <div class="modal-card">
-            <h3 id="sourceTitle"><i class="fas fa-camera"></i> Select Photo Source</h3>
-            <div class="source-actions">
-                <button class="btn btn-source" onclick="triggerCamera('camera')"><i class="fas fa-camera"></i> Camera</button>
-                <button class="btn btn-source" onclick="triggerCamera('gallery')"><i class="fas fa-images"></i> Gallery</button>
-            </div>
-            <button class="btn btn-secondary btn-full" onclick="requestCancel('modalSource')">Cancel</button>
-        </div>
-    </div>
-
-    <div id="modalStockOutSelect" class="modal-overlay hidden">
-        <div class="modal-card">
-            <h3>Select Item</h3>
-            <div id="manualStockList" class="select-stock-container"></div>
-            <button class="btn btn-secondary btn-full mt-3" onclick="requestCancel('modalStockOutSelect')">Cancel</button>
-        </div>
-    </div>
-
     <div id="modalDetails" class="modal-overlay hidden">
         <div class="modal-card">
-            <h3 id="detailsModalTitle">Stock Entry Details</h3>
+            <h3>Stock Entry Details</h3>
             <div class="input-group">
                 <label>Product Name</label>
-                <input type="text" id="prodName">
+                <input type="text" id="prodName" placeholder="Item Name">
             </div>
             <div class="input-group">
                 <label>Quantity</label>
-                <input type="number" id="prodQty">
+                <input type="number" id="prodQty" placeholder="Quantity">
             </div>
             <div class="modal-actions">
                 <button class="btn btn-secondary" onclick="requestCancel('modalDetails')">Cancel</button>
-                <button id="btnSubmitCloud" class="btn btn-primary" onclick="uploadToCloudProcess()">Save Item</button>
+                <button class="btn btn-primary" onclick="uploadToCloudProcess()">Save Item</button>
             </div>
         </div>
     </div>
 
-    <!-- Toast Notifications -->
+    <!-- Toasts -->
     <div id="successPopUp" class="toast-popup hidden">
         <i class="fas fa-circle-check"></i>
         <span id="popUpMessage">Data Saved!</span>
     </div>
 
-    <!-- Main JS Application -->
     <script src="script.js" defer></script>
 </body>
 </html>
