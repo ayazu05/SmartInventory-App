@@ -21,14 +21,12 @@ let currentUserData = null;
 let activeScanMode = 'in';
 let capturedBase64Image = "";
 let selectedModifyItemIndex = null;
-let itemIndexToDelete = null;
 
 // WHATSAPP SUPPORT NUMBER
 const WHATSAPP_NUMBER = "917011162050";
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Guaranteed Splash Screen removal (Max 1 sec fallback)
-    setTimeout(forceHideSplash, 1000);
+    setTimeout(forceHideSplash, 800);
     setupRecaptcha();
     checkUserAuthentication();
     setupEventListeners();
@@ -37,15 +35,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function forceHideSplash() {
     const splash = document.getElementById('appSplashLoader');
-    if (splash) {
-        splash.style.opacity = '0';
-        splash.style.transition = 'opacity 0.3s ease';
-        setTimeout(() => { splash.style.display = 'none'; }, 300);
-    }
+    if (splash) splash.style.display = 'none';
 }
 
 function setupRecaptcha() {
-    if (!window.recaptchaVerifier && document.getElementById('recaptcha-container')) {
+    if (!window.recaptchaVerifier) {
         window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
             'size': 'invisible',
             'callback': (response) => {}
@@ -64,7 +58,7 @@ function showToast(msg) {
     }
 }
 
-// WHATSAPP DIRECT LINK SUPPORT
+// WHATSAPP DIRECT LINK SUPPORT (HIDES NUMBER IN UI)
 function openWhatsAppSupport() {
     const text = encodeURIComponent("Hello, I need support with Ai Stock Manager App.");
     const link = `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
@@ -207,10 +201,8 @@ async function loadCloudInventory(phone) {
         }
     } catch (e) {
         console.error("Inventory Fetch Error:", e);
-    } finally {
-        renderInventoryList();
-        forceHideSplash();
     }
+    renderInventoryList();
 }
 
 function checkUserAuthentication() {
@@ -218,29 +210,17 @@ function checkUserAuthentication() {
     const savedUserData = localStorage.getItem('userData');
 
     if (savedPhone && savedUserData) {
-        try {
-            currentUserData = JSON.parse(savedUserData);
-            updateUserUI(currentUserData);
-            hideAuthModal();
-            loadCloudInventory(savedPhone);
-        } catch(e) {
-            showAuthModal();
-            forceHideSplash();
-        }
+        currentUserData = JSON.parse(savedUserData);
+        updateUserUI(currentUserData);
+        hideAuthModal();
+        loadCloudInventory(savedPhone);
     } else {
         showAuthModal();
-        forceHideSplash();
     }
 }
 
-function showAuthModal() { 
-    document.getElementById('authOverlay').classList.remove('hidden'); 
-    switchToLogin(); 
-}
-
-function hideAuthModal() { 
-    document.getElementById('authOverlay').classList.add('hidden'); 
-}
+function showAuthModal() { document.getElementById('authOverlay').classList.remove('hidden'); switchToLogin(); }
+function hideAuthModal() { document.getElementById('authOverlay').classList.add('hidden'); }
 
 // NAVIGATION & TAB SWITCHING
 function switchTab(tabName) {
@@ -465,7 +445,7 @@ async function confirmScanSubmit() {
     }
 }
 
-// RENDER INVENTORY LIST
+// RENDER INVENTORY LIST (WITH EDIT & DELETE BUTTONS)
 function renderInventoryList() {
     const container = document.getElementById('stockListContainer');
     if (!container) return;
@@ -533,4 +513,19 @@ function stepModifyQty(change) {
 async function saveModifiedQuantity() {
     if (selectedModifyItemIndex === null) return;
     
-    const newQty = parseInt(document.getElementById('modifyQtyVal').
+    const newQty = parseInt(document.getElementById('modifyQtyVal').value) || 0;
+    const phone = localStorage.getItem('userPhone');
+
+    if (!phone) {
+        alert("Session expired. Please log in again.");
+        return;
+    }
+
+    if (newQty <= 0) {
+        if (confirm("Quantity is set to 0. Remove this item from inventory?")) {
+            inventoryList.splice(selectedModifyItemIndex, 1);
+        } else {
+            return;
+        }
+    } else {
+        inventoryList[selectedModifyItemIndex].qty
